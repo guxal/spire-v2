@@ -80,6 +80,7 @@ class _EvidenceClient:
 
 
 def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaign_rows):
+    assert not (tmp_path / ".spire/customers/1234567890").exists()
     transport = _EvidenceService(campaign_rows)
     provider = GoogleAdsClientProvider(
         {"developer_token": "test", "login_customer_id": "123-456-7890"},
@@ -134,6 +135,8 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
         assert result["scope"]["extraction_id"].startswith("extract_")
 
     assert len(transport.calls) == 12
+    assert not (tmp_path / "investigations").exists()
+    assert not (tmp_path / "data").exists()
 
 
 def test_evidence_query_is_allowlisted_and_scope_safe(fake_runtime):
