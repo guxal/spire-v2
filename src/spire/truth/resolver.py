@@ -16,6 +16,7 @@ from spire.core import (
     validate_customer_id,
     validate_google_ads_id,
 )
+from spire.interfaces import DATASET_SCHEMAS
 
 from .contracts import DatasetState, ExtractionManifest
 
@@ -32,7 +33,7 @@ class ResolvedDataset:
 class DatasetResolver:
     """Resolve only logical finalized datasets for one customer."""
 
-    _known_datasets = frozenset({"account", "campaigns"})
+    _known_datasets = frozenset({"account", *DATASET_SCHEMAS})
 
     def __init__(self, workspace, customer_id: str) -> None:
         self.workspace = workspace

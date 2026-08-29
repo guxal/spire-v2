@@ -15,9 +15,11 @@ from spire.core import (
     safe_child,
     validate_google_ads_id,
 )
+from spire.interfaces import DateRange
 from spire.truth import DatasetState, ExtractionManifest, SnapshotSource
 
 from .discovery import normalize_campaign, query_rows
+from .evidence_datasets import EVIDENCE_DATASETS, evidence_query, normalize_evidence_row
 from .provider import GoogleAdsClientProvider
 
 
@@ -25,6 +27,7 @@ from .provider import GoogleAdsClientProvider
 class RefreshSpec:
     customer_id: str
     campaign_ids: tuple[str, ...]
+    date_range: DateRange | None = None
 
     def __post_init__(self) -> None:
         normalized = tuple(
@@ -36,12 +39,27 @@ class RefreshSpec:
 
     @property
     def scope(self) -> dict[str, Any]:
-        return {
+        scope = {
             "scope_type": "CAMPAIGNS",
             "requested_campaign_ids": list(self.campaign_ids),
             "resolved_campaign_ids": list(self.campaign_ids),
-            "scope_fingerprint": canonical_hash({"campaign_ids": list(self.campaign_ids)}),
+            "scope_fingerprint": canonical_hash(
+                {
+                    "campaign_ids": list(self.campaign_ids),
+                    "date_range": (
+                        {"start": self.date_range.start, "end": self.date_range.end}
+                        if self.date_range
+                        else None
+                    ),
+                }
+            ),
         }
+        if self.date_range is not None:
+            scope["date_range"] = {
+                "start": self.date_range.start,
+                "end": self.date_range.end,
+            }
+        return scope
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +109,22 @@ class ScopedRefreshService:
             "account": self._write_dataset(staging, "account", accounts),
             "campaigns": self._write_dataset(staging, "campaigns", campaigns),
         }
+        for dataset in EVIDENCE_DATASETS:
+            query = evidence_query(dataset, spec.campaign_ids, spec.date_range)
+            try:
+                rows = [
+                    normalize_evidence_row(dataset, row, spec.customer_id)
+                    for row in query_rows(self.provider.get_client(), spec.customer_id, query)
+                ]
+            except Exception as exc:  # noqa: BLE001 - failed optional datasets stay explicit
+                datasets[dataset] = {
+                    "state": DatasetState.FAILED.value,
+                    "row_count": 0,
+                    "content_hash": canonical_hash(""),
+                    "error": str(exc),
+                }
+            else:
+                datasets[dataset] = self._write_dataset(staging, dataset, rows)
         manifest = ExtractionManifest(
             extraction_id=extraction_id,
             customer_id=spec.customer_id,
