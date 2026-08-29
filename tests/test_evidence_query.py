@@ -112,6 +112,17 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     assert response["evidence_ref"].startswith("extract_")
     assert all("path" not in key for key in response)
 
+    totals = service.query(
+        EvidenceQueryRequest(
+            "1234567890", ("101",), "campaign_daily",
+            DateRange("2026-08-01", "2026-08-02"), (),
+            ("impressions", "clicks", "cost_micros", "conversions", "ctr", "cpc_micros", "cpa_micros"),
+        )
+    )
+    assert totals["aggregates"] == [
+        {"impressions": 300, "clicks": 30, "cost_micros": 4_000_000, "conversions": 6, "ctr": 0.1, "cpc_micros": 133333.33333333334, "cpa_micros": 666666.6666666666}
+    ]
+
     search_terms = service.query(
         EvidenceQueryRequest(
             "1234567890", ("101",), "search_terms",
