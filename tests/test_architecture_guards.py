@@ -22,3 +22,10 @@ def test_public_campaign_projection_has_no_physical_storage_fields():
     assert "parquet" not in source
     assert "jsonl" not in source
     assert "resource_name" not in source
+
+
+def test_evidence_surface_does_not_import_legacy_analysis_or_sql_engine():
+    root = Path(__file__).parents[1] / "src/spire"
+    source = "\n".join(path.read_text(encoding="utf-8") for path in root.rglob("*.py"))
+    for forbidden in ("investigation", "research", "semantic_profile", "recommendation", "sqlglot", "duckdb", "read_parquet"):
+        assert forbidden not in source
