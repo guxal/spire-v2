@@ -63,7 +63,12 @@ class ScopedRefreshService:
         account_query = account_query_text()
         client = self.provider.get_client()
         accounts = [normalize_account(row, spec.customer_id) for row in query_rows(client, spec.customer_id, account_query)]
-        campaigns = [normalize_campaign(row, spec.customer_id) for row in query_rows(client, spec.customer_id, campaign_query)]
+        campaigns = [
+            normalized
+            for row in query_rows(client, spec.customer_id, campaign_query)
+            if (normalized := normalize_campaign(row, spec.customer_id))["campaign_id"]
+            in spec.campaign_ids
+        ]
         manifest = self._publish(spec, extraction_id, accounts, campaigns, account_query, campaign_query)
         return RefreshResult(spec.customer_id, extraction_id, manifest)
 

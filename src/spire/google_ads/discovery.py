@@ -56,9 +56,15 @@ class AccountDiscoveryService:
         if not candidates:
             return ()
         selected = max(candidates, key=lambda path: path.name)
+        manifest_payload = json.loads((selected / "manifest.json").read_text(encoding="utf-8"))
+        if manifest_payload.get("status") != "FINALIZED":
+            raise ValueError("CATALOG_NOT_FINALIZED")
         payload = json.loads((selected / "catalog.json").read_text(encoding="utf-8"))
         if payload.get("customer_id") != customer_id:
             raise ValueError("CATALOG_CUSTOMER_MISMATCH")
+        content_hash = payload.pop("content_hash", None)
+        if content_hash != canonical_hash(payload):
+            raise ValueError("CATALOG_HASH_MISMATCH")
         return tuple(payload.get("campaigns", ()))
 
 
