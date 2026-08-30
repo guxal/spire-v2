@@ -231,8 +231,10 @@ def _search_campaign_operations(client: Any, operation: CompiledOperation) -> li
     budget = client.get_type("MutateOperation")
     budget_create = budget.campaign_budget_operation.create
     budget_create.resource_name = payload["budget_resource_name"]
+    budget_create.name = f"Spire {operation.operation_id} budget"
     budget_create.amount_micros = operation.daily_budget_micros
     budget_create.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
+    budget_create.explicitly_shared = False
     result.append(budget)
 
     campaign = client.get_type("MutateOperation")

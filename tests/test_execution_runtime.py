@@ -136,6 +136,7 @@ def test_new_google_ads_operations_are_composite_and_campaign_is_paused():
     operations = _search_campaign_operations(client, operation)
 
     assert len(operations) == 7
+    assert operations[0].campaign_budget_operation.create.name.startswith("Spire operation_create_1")
     assert operations[1].campaign_operation.create.status == "PAUSED"
     assert operations[1].campaign_operation.create.campaign_budget.endswith("/-1")
 
