@@ -7,6 +7,7 @@ import pytest
 
 from spire.core import ScopeMismatchError
 from spire.google_ads import GoogleAdsClientProvider, RefreshSpec, ScopedRefreshService
+from spire.google_ads.evidence_datasets import _strings
 from spire.interfaces import DateRange, EvidenceQueryRequest
 from spire.truth import EvidenceQueryService
 from spire.truth.evidence import _dimension_group_key, _normalize_dimension_value
@@ -35,7 +36,7 @@ class _EvidenceService:
                 {"campaign_id": "101", "date": "2026-08-01", "ad_group_id": "11", "keyword_id": "21", "keyword_text": "shoes", "match_type": "EXACT", "status": "ENABLED", "impressions": 80, "clicks": 8, "cost_micros": 800_000, "conversions": 2},
             ],
             "campaign_ad_groups": [{"campaign_id": "101", "ad_group_id": "11", "ad_group_name": "Core", "status": "ENABLED", "type": "SEARCH_STANDARD"}],
-            "campaign_ads": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "headlines": ["Buy shoes"], "descriptions": ["Comfortable shoes"], "final_urls": []}],
+            "campaign_ads": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "headlines": [{"text": "Buy shoes", "asset_performance_label": "PENDING"}], "descriptions": ["Comfortable shoes"], "final_urls": []}],
             "ad_performance": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "impressions": 90, "clicks": 9, "cost_micros": 900_000, "conversions": 2}],
             "campaign_assets": [{"campaign_id": "101", "asset_id": "41", "field_type": "SITELINK", "status": "ENABLED", "type": "SITELINK", "name": "Sizes", "link_text": "See sizes"}],
             "campaign_asset_performance": [{"campaign_id": "101", "asset_id": "41", "field_type": "SITELINK", "status": "ENABLED", "type": "SITELINK", "name": "Sizes", "impressions": 70, "clicks": 7, "cost_micros": 700_000, "conversions": 1}],
@@ -412,6 +413,11 @@ def test_nested_structured_dimension_keys_are_deterministic():
     assert json.loads(json.dumps(_normalize_dimension_value(left))) == right
     with pytest.raises(TypeError, match="UNSUPPORTED_EVIDENCE_DIMENSION_VALUE:object"):
         _normalize_dimension_value(object())
+
+
+def test_ad_copy_extraction_rejects_unknown_objects_instead_of_stringifying():
+    with pytest.raises(TypeError, match="UNSUPPORTED_EVIDENCE_STRING_LIST_ITEM:object"):
+        _strings([object()])
 
 
 def test_evidence_query_is_allowlisted_and_scope_safe(fake_runtime):

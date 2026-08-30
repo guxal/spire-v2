@@ -321,9 +321,25 @@ def _number(value: Any) -> float | int | None:
 def _strings(value: Any) -> list[str]:
     if value is None:
         return []
-    if isinstance(value, (str, bytes)):
-        return [str(value)]
-    return [str(item) for item in value]
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, bytes):
+        return [value.decode("utf-8")]
+    result: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, bytes):
+            result.append(item.decode("utf-8"))
+        elif isinstance(item, Mapping) and isinstance(item.get("text"), str):
+            result.append(item["text"])
+        elif isinstance(getattr(item, "text", None), str):
+            result.append(item.text)
+        else:
+            raise TypeError(
+                f"UNSUPPORTED_EVIDENCE_STRING_LIST_ITEM:{type(item).__name__}"
+            )
+    return result
 
 
 def geo_target_query(rows: list[Mapping[str, Any]]) -> str | None:
