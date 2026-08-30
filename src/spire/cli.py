@@ -55,6 +55,8 @@ def _parser() -> argparse.ArgumentParser:
     refresh.add_argument("--customer-id")
     refresh.add_argument("--campaign-id")
     refresh.add_argument("--enabled-only", action="store_true")
+    refresh.add_argument("--date-start")
+    refresh.add_argument("--date-end")
 
     campaigns_group = groups.add_parser("campaigns", help="discover and read campaigns")
     campaign_actions = campaigns_group.add_subparsers(dest="action", required=True)

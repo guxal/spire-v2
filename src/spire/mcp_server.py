@@ -66,7 +66,7 @@ class McpServer:
         if name == "accounts_list":
             return self.api.accounts_list()
         if name == "account_refresh":
-            return self.api.account_refresh(args["customer_id"], campaign_id=args.get("campaign_id"), enabled_only=args.get("enabled_only", False))
+            return self.api.account_refresh(args["customer_id"], campaign_id=args.get("campaign_id"), enabled_only=args.get("enabled_only", False), date_range=args.get("date_range"))
         if name == "campaigns_discover":
             return self.api.campaigns_discover(args["customer_id"])
         if name == "campaigns_list":

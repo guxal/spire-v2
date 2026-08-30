@@ -26,6 +26,7 @@ class PublicApi:
         *,
         campaign_id: str | None = None,
         enabled_only: bool = False,
+        date_range: dict[str, str] | DateRange | None = None,
     ) -> dict[str, Any]:
         customer_id = validate_customer_id(customer_id)
         services = self.application.for_customer(customer_id)
@@ -39,7 +40,9 @@ class PublicApi:
             campaign_ids = tuple(str(row["campaign_id"]) for row in campaigns)
         if not campaign_ids:
             raise ValueError("NO_CAMPAIGNS_AVAILABLE")
-        result = services.refresh.refresh(RefreshSpec(customer_id, campaign_ids))
+        if date_range is not None and not isinstance(date_range, DateRange):
+            date_range = DateRange(**date_range)
+        result = services.refresh.refresh(RefreshSpec(customer_id, campaign_ids, date_range))
         return {
             "status": "COMPLETE",
             "customer_id": customer_id,
