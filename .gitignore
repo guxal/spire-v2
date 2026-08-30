@@ -9,3 +9,6 @@ __pycache__/
 config/google-ads.yaml
 .spire/customers/*/cache/google_ads_oauth.json
 .spire/customers/*/cache/.google_ads_oauth.json.lock
+outputs/
+.spire/
+.codegraph/
