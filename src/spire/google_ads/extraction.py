@@ -3,6 +3,7 @@
 # @status stable
 # @adr [[0001-deterministic-frozen-truth]]
 # @adr [[0017-finite-resolved-refresh-scope]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_truth_pipeline.py]]
 """Explicit scoped refresh and atomic publication of minimal truth."""
 
@@ -32,9 +33,11 @@ from .evidence_datasets import (
     enrich_geo_rows,
     evidence_query,
     geo_target_query,
+    negative_keyword_queries,
     normalize_auction_summary_row,
     normalize_evidence_row,
     normalize_geo_target_row,
+    normalize_negative_keyword_row,
 )
 from .provider import GoogleAdsClientProvider
 
@@ -126,9 +129,11 @@ class ScopedRefreshService:
             "campaigns": self._write_dataset(staging, "campaigns", campaigns),
         }
         for dataset in EVIDENCE_DATASETS:
-            query = evidence_query(dataset, spec.campaign_ids, spec.date_range)
             try:
-                if dataset == "auction_insights":
+                if dataset == "negative_keywords":
+                    rows = self._negative_keyword_rows(spec, observed_at)
+                elif dataset == "auction_insights":
+                    query = evidence_query(dataset, spec.campaign_ids, spec.date_range)
                     try:
                         rows = [
                             normalize_evidence_row(dataset, row, spec.customer_id)
@@ -151,6 +156,7 @@ class ScopedRefreshService:
                             status="NO_PARTICIPANT_ROWS",
                         )
                 else:
+                    query = evidence_query(dataset, spec.campaign_ids, spec.date_range)
                     rows = [
                         normalize_evidence_row(dataset, row, spec.customer_id)
                         for row in query_rows(
@@ -215,6 +221,47 @@ class ScopedRefreshService:
         )
         return manifest
 
+    def _negative_keyword_rows(self, spec: RefreshSpec, observed_at: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        failures = 0
+        queries = negative_keyword_queries(spec.campaign_ids)
+        fetched: dict[str, list[Any]] = {}
+        for source, query in queries.items():
+            try:
+                fetched[source] = query_rows(self.provider.get_client(), spec.customer_id, query)
+            except Exception:  # noqa: BLE001 - each optional provider view is independently explicit
+                failures += 1
+        if failures == len(queries):
+            raise RuntimeError("NEGATIVE_KEYWORD_INVENTORY_UNAVAILABLE")
+        for source, scope in (("campaign", "CAMPAIGN"), ("ad_group", "AD_GROUP")):
+            rows.extend(
+                normalize_negative_keyword_row(scope, row, spec.customer_id, observed_at=observed_at)
+                for row in fetched.get(source, ())
+            )
+        shared_criteria: dict[str, list[Any]] = {}
+        for row in fetched.get("shared_criteria", ()):
+            shared_criteria.setdefault(
+                str(_field(row, "shared_criterion.shared_set", "shared_set", "shared_set.resource_name")), []
+            ).append(row)
+        for association in fetched.get("shared_associations", ()):
+            shared_set = str(_field(association, "campaign_shared_set.shared_set", "shared_set"))
+            for criterion in _matching_shared_criteria(shared_criteria, shared_set):
+                merged = {**_row_mapping(association), **_row_mapping(criterion)}
+                rows.append(normalize_negative_keyword_row("SHARED_LIST", merged, spec.customer_id, observed_at=observed_at))
+        account_sets = {
+            str(_field(row, "customer_negative_criterion.negative_keyword_list.shared_set", "shared_set"))
+            for row in fetched.get("account_lists", ())
+        }
+        for shared_set in account_sets:
+            for criterion in _matching_shared_criteria(shared_criteria, shared_set):
+                for campaign_id in spec.campaign_ids:
+                    rows.append(
+                        normalize_negative_keyword_row(
+                            "ACCOUNT", criterion, spec.customer_id, campaign_id=campaign_id, observed_at=observed_at
+                        )
+                    )
+        return [row for row in rows if row["text"] and row["match_type"]]
+
     @staticmethod
     def _write_dataset(staging: Path, name: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
         path = staging / "datasets" / f"{name}.jsonl"
@@ -265,6 +312,25 @@ def _value(row: Any, *names: str) -> Any:
         except (AttributeError, KeyError, TypeError):
             continue
     return None
+
+
+def _field(row: Any, *names: str) -> Any:
+    return _value(row, *names)
+
+
+def _row_mapping(row: Any) -> dict[str, Any]:
+    return dict(row) if isinstance(row, dict) else {}
+
+
+def _matching_shared_criteria(rows: dict[str, list[Any]], shared_set: str) -> list[Any]:
+    if shared_set in rows:
+        return rows[shared_set]
+    return [
+        row
+        for resource_name, values in rows.items()
+        if resource_name.rstrip("/").split("/")[-1] == shared_set.rstrip("/").split("/")[-1]
+        for row in values
+    ]
 
 
 def _new_id(prefix: str) -> str:

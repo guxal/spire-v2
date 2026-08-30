@@ -2,6 +2,7 @@
 # @domain evidence
 # @status stable
 # @adr [[0010-safe-evidence-query]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_evidence_query.py]]
 """Allowlisted extraction queries and canonical row normalization."""
 
@@ -27,6 +28,7 @@ EVIDENCE_DATASETS = (
     "schedule_day",
     "schedule_hour",
     "auction_insights",
+    "negative_keywords",
 )
 
 
@@ -53,6 +55,81 @@ def evidence_query(dataset: str, campaign_ids: tuple[str, ...], date_range: Date
         "auction_insights": "SELECT campaign.id, segments.date, segments.auction_insight_domain, metrics.auction_insight_search_impression_share, metrics.auction_insight_search_overlap_rate, metrics.auction_insight_search_position_above_rate, metrics.auction_insight_search_outranking_share, metrics.auction_insight_search_top_impression_percentage, metrics.auction_insight_search_absolute_top_impression_percentage FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY segments.date, campaign.id, segments.auction_insight_domain",
     }
     return queries[dataset].format(ids=ids, date_clause=date_clause)
+
+
+def negative_keyword_queries(campaign_ids: tuple[str, ...]) -> dict[str, str]:
+    ids = ", ".join(campaign_ids)
+    return {
+        "campaign": (
+            "SELECT campaign.id, campaign.name, campaign_criterion.keyword.text, "
+            "campaign_criterion.keyword.match_type FROM campaign_criterion "
+            f"WHERE campaign.id IN ({ids}) AND campaign_criterion.negative = TRUE "
+            "AND campaign_criterion.type = KEYWORD"
+        ),
+        "ad_group": (
+            "SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, "
+            "ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type "
+            "FROM ad_group_criterion "
+            f"WHERE campaign.id IN ({ids}) AND ad_group_criterion.negative = TRUE "
+            "AND ad_group_criterion.type = KEYWORD"
+        ),
+        "shared_associations": (
+            "SELECT campaign.id, campaign.name, campaign_shared_set.shared_set, shared_set.name "
+            "FROM campaign_shared_set "
+            f"WHERE campaign.id IN ({ids}) AND campaign_shared_set.status != REMOVED "
+            "AND shared_set.type = NEGATIVE_KEYWORDS"
+        ),
+        "shared_criteria": (
+            "SELECT shared_criterion.shared_set, shared_set.name, shared_criterion.keyword.text, "
+            "shared_criterion.keyword.match_type FROM shared_criterion "
+            "WHERE shared_set.type IN (NEGATIVE_KEYWORDS, ACCOUNT_LEVEL_NEGATIVE_KEYWORDS) "
+            "AND shared_criterion.type = KEYWORD"
+        ),
+        "account_lists": (
+            "SELECT customer_negative_criterion.negative_keyword_list.shared_set, shared_set.name "
+            "FROM customer_negative_criterion "
+            "WHERE customer_negative_criterion.type = NEGATIVE_KEYWORD_LIST"
+        ),
+    }
+
+
+def normalize_negative_keyword_row(
+    scope: str,
+    row: Any,
+    customer_id: str,
+    *,
+    campaign_id: str | None = None,
+    observed_at: str,
+) -> dict[str, Any]:
+    raw_campaign_id = campaign_id or _value(row, "campaign.id", "campaign_id")
+    return {
+        "customer_id": customer_id,
+        "campaign_id": validate_google_ads_id(str(raw_campaign_id), field="campaign_id"),
+        "campaign_name": _string(_value(row, "campaign.name", "campaign_name")),
+        "ad_group_id": _string(_value(row, "ad_group.id", "ad_group_id")),
+        "ad_group_name": _string(_value(row, "ad_group.name", "ad_group_name")),
+        "scope": scope,
+        "text": _string(
+            _value(
+                row,
+                "campaign_criterion.keyword.text",
+                "ad_group_criterion.keyword.text",
+                "shared_criterion.keyword.text",
+                "text",
+            )
+        ),
+        "match_type": _enum(
+            _value(
+                row,
+                "campaign_criterion.keyword.match_type",
+                "ad_group_criterion.keyword.match_type",
+                "shared_criterion.keyword.match_type",
+                "match_type",
+            )
+        ),
+        "shared_set_name": _string(_value(row, "shared_set.name", "shared_set_name")),
+        "observed_at": observed_at,
+    }
 
 
 def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str, Any]:

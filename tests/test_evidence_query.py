@@ -326,7 +326,7 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
         assert result["schema"]["dataset"] == dataset
         assert result["scope"]["extraction_id"].startswith("extract_")
 
-    assert len(transport.calls) == 17
+    assert len(transport.calls) == 22
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
 

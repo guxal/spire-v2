@@ -44,7 +44,7 @@ def test_clean_account_bootstrap_from_zero(tmp_path, campaign_rows):
     ).rows[0]["campaign_id"] == "101"
     assert campaign["name"] == "Search - Brand"
     assert campaign["daily_budget"] == 12.5
-    assert len(calls) == 17
+    assert len(calls) == 22
     assert (workspace.truth(customer_id) / "current.json").exists()
     assert not any(
         (tmp_path / name).exists()
