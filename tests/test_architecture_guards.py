@@ -29,3 +29,11 @@ def test_evidence_surface_does_not_import_legacy_analysis_or_sql_engine():
     source = "\n".join(path.read_text(encoding="utf-8") for path in root.rglob("*.py"))
     for forbidden in ("investigation", "research", "semantic_profile", "recommendation", "sqlglot", "duckdb", "read_parquet"):
         assert forbidden not in source
+
+
+def test_google_ads_auth_and_client_construction_have_single_owners():
+    root = Path(__file__).parents[1] / "src/spire/google_ads"
+    source = "\n".join(path.read_text(encoding="utf-8") for path in root.rglob("*.py"))
+    assert source.count("from google.oauth2.credentials import Credentials") == 1
+    assert source.count("from google.ads.googleads.client import GoogleAdsClient") == 1
+    assert "GoogleAdsClient.load_from_dict" not in source
