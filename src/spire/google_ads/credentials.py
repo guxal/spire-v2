@@ -90,7 +90,7 @@ class GoogleAdsCredentialProvider:
             client_id=str(self.config["client_id"]),
             client_secret=str(self.config["client_secret"]),
             scopes=list(self.config.get("scopes") or GOOGLE_ADS_SCOPES),
-            expiry=expiry,
+            expiry=_google_expiry(expiry),
         )
 
     def _refresh(self, credentials: Credentials) -> None:
@@ -185,3 +185,11 @@ def _normalize_expiry(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _google_expiry(value: datetime | None) -> datetime | None:
+    """Google auth currently compares expiry to a naive UTC clock."""
+
+    if value is None:
+        return None
+    return _normalize_expiry(value).replace(tzinfo=None)

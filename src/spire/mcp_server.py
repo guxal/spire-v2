@@ -17,7 +17,7 @@ def _customer_schema() -> dict[str, Any]:
 TOOLS = (
     ("auth_status", "Return local Google Ads authentication status.", {"type": "object", "properties": {}}),
     ("accounts_list", "List accessible Google Ads accounts.", {"type": "object", "properties": {}}),
-    ("account_refresh", "Explicitly refresh frozen account truth.", {"type": "object", "required": ["customer_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}, "enabled_only": {"type": "boolean"}}}),
+    ("account_refresh", "Explicitly refresh frozen account truth.", {"type": "object", "required": ["customer_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}, "enabled_only": {"type": "boolean"}, "date_range": {"type": "object"}}}),
     ("campaigns_discover", "Discover live campaigns for an account.", _customer_schema()),
     ("campaigns_list", "List campaigns from the frozen catalog.", _customer_schema()),
     ("campaigns_get", "Read one campaign from the current snapshot.", {"type": "object", "required": ["customer_id", "campaign_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}}}),
