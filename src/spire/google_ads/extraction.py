@@ -21,9 +21,11 @@ from spire.truth import DatasetState, ExtractionManifest, SnapshotSource
 from .discovery import normalize_campaign, query_rows
 from .evidence_datasets import (
     EVIDENCE_DATASETS,
+    auction_summary_query,
     enrich_geo_rows,
     evidence_query,
     geo_target_query,
+    normalize_auction_summary_row,
     normalize_evidence_row,
     normalize_geo_target_row,
 )
@@ -133,6 +135,19 @@ class ScopedRefreshService:
                         )
                     ]
                     rows = enrich_geo_rows(rows, geo_targets)
+                if dataset == "auction_insights":
+                    summary_query = auction_summary_query(
+                        spec.campaign_ids,
+                        spec.date_range,
+                    )
+                    rows.extend(
+                        normalize_auction_summary_row(row, spec.customer_id)
+                        for row in query_rows(
+                            self.provider.get_client(),
+                            spec.customer_id,
+                            summary_query,
+                        )
+                    )
             except Exception as exc:  # noqa: BLE001 - failed optional datasets stay explicit
                 datasets[dataset] = {
                     "state": DatasetState.FAILED.value,

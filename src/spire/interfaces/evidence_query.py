@@ -129,8 +129,21 @@ DATASET_SCHEMAS: dict[str, DatasetSchema] = {
         ("impressions", "clicks", "cost_micros", "conversions", "conversions_value"),
     ),
     "auction_insights": DatasetSchema(
-        "auction_insights", ("date", "campaign_id"),
-        ("search_impression_share", "search_top_impression_share", "search_absolute_top_impression_share", "search_rank_lost_impression_share", "search_budget_lost_impression_share"),
+        "auction_insights",
+        ("date", "campaign_id", "row_type", "auction_participant_domain"),
+        (
+            "search_impression_share",
+            "search_top_impression_share",
+            "search_absolute_top_impression_share",
+            "search_rank_lost_impression_share",
+            "search_budget_lost_impression_share",
+            "auction_insight_search_impression_share",
+            "auction_insight_search_overlap_rate",
+            "auction_insight_search_position_above_rate",
+            "auction_insight_search_outranking_share",
+            "auction_insight_search_top_impression_percentage",
+            "auction_insight_search_absolute_top_impression_percentage",
+        ),
     ),
 }
 

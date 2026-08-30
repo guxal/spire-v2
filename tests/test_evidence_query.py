@@ -39,13 +39,22 @@ class _EvidenceService:
             "geo_daily": [{"campaign_id": "101", "date": "2026-08-01", "country_criterion_id": "100", "location_type": "LOCATION_OF_PRESENCE", "geo_city": "geoTargetConstants/200", "geo_region": "geoTargetConstants/300", "impressions": 50, "clicks": 5, "cost_micros": 500_000, "conversions": 1}],
             "schedule_day": [{"campaign_id": "101", "day_of_week": "MONDAY", "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
             "schedule_hour": [{"campaign_id": "101", "hour": 9, "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
-            "auction_insights": [{"campaign_id": "101", "date": "2026-08-01", "search_impression_share": 0.5, "search_top_impression_share": 0.4}],
+            "auction_insights": [{"campaign_id": "101", "date": "2026-08-01", "auction_participant_domain": "competitor.example", "auction_insight_search_impression_share": 0.35, "auction_insight_search_overlap_rate": 0.2, "auction_insight_search_position_above_rate": 0.1, "auction_insight_search_outranking_share": 0.7, "auction_insight_search_top_impression_percentage": 0.4, "auction_insight_search_absolute_top_impression_percentage": 0.15}],
         }
+        self.auction_summary_rows = [
+            {"campaign_id": "101", "date": "2026-08-01", "search_impression_share": 0.5, "search_top_impression_share": 0.4, "search_absolute_top_impression_share": 0.2, "search_rank_lost_impression_share": 0.3, "search_budget_lost_impression_share": 0.2}
+        ]
 
     def search_stream(self, *, customer_id: str, query: str):
         self.calls.append(query)
         if "FROM customer LIMIT" in query:
             yield _Batch([{"customer.id": customer_id, "customer.descriptive_name": "Example", "customer.currency_code": "USD", "customer.time_zone": "UTC"}])
+            return
+        if "segments.auction_insight_domain" in query:
+            yield _Batch(self.rows["auction_insights"])
+            return
+        if "metrics.search_impression_share" in query and "FROM campaign WHERE" in query:
+            yield _Batch(self.auction_summary_rows)
             return
         if "metrics.impressions" not in query and "FROM campaign WHERE" in query:
             yield _Batch(self.campaign_rows)
@@ -182,12 +191,57 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     ]
     assert "geoTargetConstants/" not in json.dumps(geo)
 
+    auction = service.query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "auction_insights",
+            dimensions=("row_type", "auction_participant_domain"),
+            metrics=(
+                "auction_insight_search_impression_share",
+                "auction_insight_search_overlap_rate",
+                "auction_insight_search_position_above_rate",
+            ),
+        )
+    )
+    assert auction["aggregates"] == [
+        {
+            "row_type": "AUCTION_PARTICIPANT",
+            "auction_participant_domain": "competitor.example",
+            "auction_insight_search_impression_share": 0.35,
+            "auction_insight_search_overlap_rate": 0.2,
+            "auction_insight_search_position_above_rate": 0.1,
+        },
+        {
+            "row_type": "CAMPAIGN_SUMMARY",
+            "auction_participant_domain": None,
+            "auction_insight_search_impression_share": None,
+            "auction_insight_search_overlap_rate": None,
+            "auction_insight_search_position_above_rate": None,
+        },
+    ]
+    auction_summary = service.query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "auction_insights",
+            filters={"row_type": "CAMPAIGN_SUMMARY"},
+            metrics=("search_impression_share", "search_budget_lost_impression_share"),
+        )
+    )
+    assert auction_summary["aggregates"] == [
+        {
+            "search_impression_share": 0.5,
+            "search_budget_lost_impression_share": 0.2,
+        }
+    ]
+
     for dataset in ("campaign_ad_groups", "campaign_ads", "campaign_assets", "geo_daily", "schedule_day", "schedule_hour", "auction_insights"):
         result = service.query(EvidenceQueryRequest("1234567890", ("101",), dataset))
         assert result["schema"]["dataset"] == dataset
         assert result["scope"]["extraction_id"].startswith("extract_")
 
-    assert len(transport.calls) == 13
+    assert len(transport.calls) == 14
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
 

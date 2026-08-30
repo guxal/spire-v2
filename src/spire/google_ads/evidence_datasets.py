@@ -39,7 +39,7 @@ def evidence_query(dataset: str, campaign_ids: tuple[str, ...], date_range: Date
         "geo_daily": "SELECT campaign.id, geographic_view.country_criterion_id, geographic_view.location_type, segments.date, segments.geo_target_city, segments.geo_target_region, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM geographic_view WHERE campaign.id IN ({ids}){date_clause} ORDER BY segments.date, campaign.id",
         "schedule_day": "SELECT campaign.id, segments.day_of_week, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY campaign.id, segments.day_of_week",
         "schedule_hour": "SELECT campaign.id, segments.hour, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY campaign.id, segments.hour",
-        "auction_insights": "SELECT campaign.id, segments.date, metrics.search_impression_share, metrics.search_top_impression_share, metrics.search_absolute_top_impression_share, metrics.search_rank_lost_impression_share, metrics.search_budget_lost_impression_share FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY segments.date, campaign.id",
+        "auction_insights": "SELECT campaign.id, segments.date, segments.auction_insight_domain, metrics.auction_insight_search_impression_share, metrics.auction_insight_search_overlap_rate, metrics.auction_insight_search_position_above_rate, metrics.auction_insight_search_outranking_share, metrics.auction_insight_search_top_impression_percentage, metrics.auction_insight_search_absolute_top_impression_percentage FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY segments.date, campaign.id, segments.auction_insight_domain",
     }
     return queries[dataset].format(ids=ids, date_clause=date_clause)
 
@@ -135,10 +135,63 @@ def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str
     if dataset == "schedule_hour":
         result["hour"] = _int(_value(row, "segments.hour", "hour"))
         return _metrics(result, row)
-    result["date"] = _string(_value(row, "segments.date", "date"))
+    result.update(
+        date=_string(_value(row, "segments.date", "date")),
+        row_type="AUCTION_PARTICIPANT",
+        auction_participant_domain=_string(
+            _value(row, "segments.auction_insight_domain", "auction_participant_domain")
+        ),
+    )
     return {
         **result,
         **{
+            name: _number(_value(row, f"metrics.{name}", name))
+            for name in (
+                "auction_insight_search_impression_share",
+                "auction_insight_search_overlap_rate",
+                "auction_insight_search_position_above_rate",
+                "auction_insight_search_outranking_share",
+                "auction_insight_search_top_impression_percentage",
+                "auction_insight_search_absolute_top_impression_percentage",
+            )
+        },
+    }
+
+
+def auction_summary_query(
+    campaign_ids: tuple[str, ...], date_range: DateRange | None
+) -> str:
+    ids = ", ".join(campaign_ids)
+    date_clause = ""
+    if date_range is not None:
+        date_clause = (
+            f" AND segments.date BETWEEN '{date_range.start}' AND '{date_range.end}'"
+        )
+    return (
+        "SELECT campaign.id, segments.date, metrics.search_impression_share, "
+        "metrics.search_top_impression_share, "
+        "metrics.search_absolute_top_impression_share, "
+        "metrics.search_rank_lost_impression_share, "
+        "metrics.search_budget_lost_impression_share "
+        f"FROM campaign WHERE campaign.id IN ({ids}){date_clause} "
+        "ORDER BY segments.date, campaign.id"
+    )
+
+
+def normalize_auction_summary_row(row: Any, customer_id: str) -> dict[str, Any]:
+    campaign_id = validate_google_ads_id(
+        _value(row, "campaign.id", "campaign_id") or "0",
+        field="campaign_id",
+    )
+    result: dict[str, Any] = {
+        "customer_id": customer_id,
+        "campaign_id": campaign_id,
+        "date": _string(_value(row, "segments.date", "date")),
+        "row_type": "CAMPAIGN_SUMMARY",
+        "auction_participant_domain": None,
+    }
+    result.update(
+        {
             name: _number(_value(row, f"metrics.{name}", name))
             for name in (
                 "search_impression_share",
@@ -147,8 +200,9 @@ def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str
                 "search_rank_lost_impression_share",
                 "search_budget_lost_impression_share",
             )
-        },
-    }
+        }
+    )
+    return result
 
 
 def _metrics(result: dict[str, Any], row: Any) -> dict[str, Any]:
