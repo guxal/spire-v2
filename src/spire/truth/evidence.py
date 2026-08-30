@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from numbers import Number
 from typing import Any
@@ -153,7 +154,7 @@ def _matches_filters(row: Mapping[str, Any], filters: Mapping[str, Any]) -> bool
 
 
 def _project(row: Mapping[str, Any], dimensions: Iterable[str], metrics: Iterable[str]) -> dict[str, Any]:
-    result = {field: row.get(field) for field in dimensions}
+    result = {field: _normalize_dimension_value(row.get(field)) for field in dimensions}
     result.update({field: _metric_value(row, field) for field in metrics})
     return result
 
@@ -161,13 +162,19 @@ def _project(row: Mapping[str, Any], dimensions: Iterable[str], metrics: Iterabl
 def _aggregate(
     rows: list[Mapping[str, Any]], dimensions: tuple[str, ...], metrics: tuple[str, ...]
 ) -> list[dict[str, Any]]:
-    groups: dict[tuple[Any, ...], list[Mapping[str, Any]]] = {}
+    groups: dict[
+        tuple[Any, ...],
+        tuple[tuple[Any, ...], list[Mapping[str, Any]]],
+    ] = {}
     for row in rows:
-        key = tuple(row.get(field) for field in dimensions)
-        groups.setdefault(key, []).append(row)
+        values = tuple(_normalize_dimension_value(row.get(field)) for field in dimensions)
+        key = tuple(_dimension_group_key(value) for value in values)
+        if key not in groups:
+            groups[key] = (values, [])
+        groups[key][1].append(row)
     result: list[dict[str, Any]] = []
-    for key, members in groups.items():
-        item = dict(zip(dimensions, key))
+    for values, members in groups.values():
+        item = dict(zip(dimensions, values))
         for metric in metrics:
             item[metric] = _aggregate_metric(members, metric)
         result.append(item)
@@ -210,8 +217,52 @@ def _ordered(rows: list[dict[str, Any]], order_by: str | tuple[str, ...] | None)
     return result
 
 
-def _sort_key(value: Any) -> tuple[int, Any]:
-    return (value is None, value if value is not None else "")
+def _sort_key(value: Any) -> tuple[bool, tuple[Any, ...]]:
+    normalized = _normalize_dimension_value(value)
+    return (normalized is None, _dimension_group_key(normalized))
+
+
+def _normalize_dimension_value(value: Any) -> Any:
+    """Return a deterministic JSON value without flattening its structure."""
+
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise TypeError("UNSUPPORTED_EVIDENCE_DIMENSION_VALUE:non_finite_float")
+        return value
+    if isinstance(value, list):
+        return [_normalize_dimension_value(item) for item in value]
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("UNSUPPORTED_EVIDENCE_DIMENSION_VALUE:non_string_object_key")
+        return {
+            key: _normalize_dimension_value(value[key])
+            for key in sorted(value)
+        }
+    raise TypeError(f"UNSUPPORTED_EVIDENCE_DIMENSION_VALUE:{type(value).__name__}")
+
+
+def _dimension_group_key(value: Any) -> tuple[Any, ...]:
+    """Create a type-preserving hashable key for a normalized JSON value."""
+
+    normalized = _normalize_dimension_value(value)
+    if normalized is None:
+        return ("null",)
+    if isinstance(normalized, bool):
+        return ("boolean", normalized)
+    if isinstance(normalized, int):
+        return ("integer", normalized)
+    if isinstance(normalized, float):
+        return ("number", normalized)
+    if isinstance(normalized, str):
+        return ("string", normalized)
+    if isinstance(normalized, list):
+        return ("array", tuple(_dimension_group_key(item) for item in normalized))
+    return (
+        "object",
+        tuple((key, _dimension_group_key(item)) for key, item in normalized.items()),
+    )
 
 
 def _numeric(value: Any) -> float | None:

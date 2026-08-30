@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 import pytest
@@ -8,6 +9,7 @@ from spire.core import ScopeMismatchError
 from spire.google_ads import GoogleAdsClientProvider, RefreshSpec, ScopedRefreshService
 from spire.interfaces import DateRange, EvidenceQueryRequest
 from spire.truth import EvidenceQueryService
+from spire.truth.evidence import _dimension_group_key, _normalize_dimension_value
 
 
 @dataclass
@@ -32,7 +34,7 @@ class _EvidenceService:
                 {"campaign_id": "101", "date": "2026-08-01", "ad_group_id": "11", "keyword_id": "21", "keyword_text": "shoes", "match_type": "EXACT", "status": "ENABLED", "impressions": 80, "clicks": 8, "cost_micros": 800_000, "conversions": 2},
             ],
             "campaign_ad_groups": [{"campaign_id": "101", "ad_group_id": "11", "ad_group_name": "Core", "status": "ENABLED", "type": "SEARCH_STANDARD"}],
-            "campaign_ads": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "headlines": ["Buy shoes"], "descriptions": ["Comfortable shoes"]}],
+            "campaign_ads": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "headlines": ["Buy shoes"], "descriptions": ["Comfortable shoes"], "final_urls": []}],
             "campaign_assets": [{"campaign_id": "101", "asset_id": "41", "field_type": "SITELINK", "status": "ENABLED", "type": "SITELINK", "name": "Sizes", "link_text": "See sizes"}],
             "geo_daily": [{"campaign_id": "101", "date": "2026-08-01", "country_criterion_id": "100", "location_type": "LOCATION_OF_PRESENCE", "geo_region": "Bogota", "impressions": 50, "clicks": 5, "cost_micros": 500_000, "conversions": 1}],
             "schedule_day": [{"campaign_id": "101", "day_of_week": "MONDAY", "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
@@ -49,7 +51,7 @@ class _EvidenceService:
             yield _Batch(self.campaign_rows)
             return
         for dataset, rows in self.rows.items():
-            if f"FROM {self._view(dataset)}" in query:
+            if f"FROM {self._view(dataset)} " in query:
                 yield _Batch(rows)
                 return
         raise AssertionError(f"unexpected query: {query}")
@@ -148,6 +150,53 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     assert len(transport.calls) == 12
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
+
+
+def test_structured_dimensions_group_without_losing_json_shape(tmp_path, campaign_rows):
+    transport = _EvidenceService(campaign_rows)
+    provider = GoogleAdsClientProvider(
+        {"developer_token": "test", "login_customer_id": "123-456-7890"},
+        client_factory=lambda _: _EvidenceClient(transport),
+    )
+    from spire.core import WorkspacePaths
+
+    workspace = WorkspacePaths(tmp_path)
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+
+    response = EvidenceQueryService(workspace).query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "campaign_ads",
+            dimensions=("headlines", "final_urls"),
+        )
+    )
+
+    assert response["aggregates"] == [
+        {"headlines": ["Buy shoes"], "final_urls": []}
+    ]
+    repeated = EvidenceQueryService(workspace).query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "campaign_ads",
+            dimensions=("headlines", "final_urls"),
+        )
+    )
+    assert response["rows"] == repeated["rows"]
+    assert response["aggregates"] == repeated["aggregates"]
+    assert json.loads(json.dumps(response))["aggregates"][0]["headlines"] == ["Buy shoes"]
+
+
+def test_nested_structured_dimension_keys_are_deterministic():
+    left = {"placements": [{"pin": "HEADLINE_1", "text": "Buy shoes"}], "labels": []}
+    right = {"labels": [], "placements": [{"text": "Buy shoes", "pin": "HEADLINE_1"}]}
+
+    assert _normalize_dimension_value(left) == right
+    assert _dimension_group_key(left) == _dimension_group_key(right)
+    assert json.loads(json.dumps(_normalize_dimension_value(left))) == right
+    with pytest.raises(TypeError, match="UNSUPPORTED_EVIDENCE_DIMENSION_VALUE:object"):
+        _normalize_dimension_value(object())
 
 
 def test_evidence_query_is_allowlisted_and_scope_safe(fake_runtime):
