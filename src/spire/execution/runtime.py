@@ -50,10 +50,14 @@ class GoogleAdsGateway:
     def _api_operation(self, operation: CompiledOperation):
         client = self.client_provider.get_client()
         api_operation = client.get_type("MutateOperation")
-        update = api_operation.campaign_budget_operation.update
+        budget_operation = api_operation.campaign_budget_operation
+        update = budget_operation.update
         update.resource_name = operation.budget_resource_name
         update.amount_micros = operation.daily_budget_micros
-        update.update_mask.paths.append("amount_micros")
+        update_mask = getattr(budget_operation, "update_mask", None)
+        if update_mask is None:  # minimal test doubles may expose it on the update resource
+            update_mask = update.update_mask
+        update_mask.paths.append("amount_micros")
         return api_operation
 
 

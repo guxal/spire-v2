@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+from types import SimpleNamespace
 
 from spire.application import Application
 from spire.cli_commands import campaigns
 from spire.cli_commands.common import CommandContext, require_customer
+from spire.execution import CompiledOperation, GoogleAdsGateway
 from spire.mcp_server import TOOLS, McpServer, serve
 from spire.surfaces import PublicApi
 
@@ -110,3 +112,40 @@ def test_public_api_clean_workspace_refresh_and_frozen_reads(fake_runtime):
     )
     assert evidence["scope"]["campaign_ids"] == ["101"]
     assert "campaign_daily" in evidence["evidence_ref"]
+
+
+def test_google_ads_budget_operation_places_update_mask_on_operation():
+    operation = CompiledOperation(
+        operation_id="operation_test123",
+        customer_id="1234567890",
+        campaign_id="101",
+        kind="UPDATE_BUDGET",
+        budget_resource_name="customers/1234567890/campaignBudgets/9001",
+        daily_budget_micros=13_000_000,
+        snapshot_hash="sha256:snapshot",
+    )
+    api_operation = SimpleNamespace(
+        campaign_budget_operation=SimpleNamespace(
+            update=SimpleNamespace(), update_mask=SimpleNamespace(paths=[])
+        )
+    )
+
+    class Service:
+        def mutate(self, **kwargs):
+            self.kwargs = kwargs
+
+    service = Service()
+
+    class Client:
+        def get_type(self, name):
+            assert name == "MutateOperation"
+            return api_operation
+
+        def get_service(self, name):
+            assert name == "GoogleAdsService"
+            return service
+
+    gateway = GoogleAdsGateway(SimpleNamespace(get_client=lambda: Client()))
+    result = gateway.validate_only(operation)
+    assert result.status == "PASSED"
+    assert api_operation.campaign_budget_operation.update_mask.paths == ["amount_micros"]
