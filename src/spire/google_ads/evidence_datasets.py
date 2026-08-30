@@ -185,6 +185,8 @@ def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str
         auction_participant_domain=_string(
             _value(row, "segments.auction_insight_domain", "auction_participant_domain")
         ),
+        participant_data_status="AVAILABLE",
+        participant_data_limitation=None,
     )
     return {
         **result,
@@ -233,6 +235,8 @@ def normalize_auction_summary_row(row: Any, customer_id: str) -> dict[str, Any]:
         "date": _string(_value(row, "segments.date", "date")),
         "row_type": "CAMPAIGN_SUMMARY",
         "auction_participant_domain": None,
+        "participant_data_status": "NOT_APPLICABLE",
+        "participant_data_limitation": None,
     }
     result.update(
         {
@@ -247,6 +251,30 @@ def normalize_auction_summary_row(row: Any, customer_id: str) -> dict[str, Any]:
         }
     )
     return result
+
+
+def auction_participant_availability_rows(
+    customer_id: str,
+    campaign_ids: tuple[str, ...],
+    *,
+    status: str,
+) -> list[dict[str, Any]]:
+    limitations = {
+        "NO_PARTICIPANT_ROWS": "Google Ads returned no Auction Insights participant rows for this refresh.",
+        "QUERY_UNAVAILABLE": "Google Ads did not authorize or complete the Auction Insights participant query for this refresh.",
+    }
+    return [
+        {
+            "customer_id": customer_id,
+            "campaign_id": campaign_id,
+            "date": None,
+            "row_type": "PARTICIPANT_AVAILABILITY",
+            "auction_participant_domain": None,
+            "participant_data_status": status,
+            "participant_data_limitation": limitations[status],
+        }
+        for campaign_id in campaign_ids
+    ]
 
 
 def _metrics(result: dict[str, Any], row: Any) -> dict[str, Any]:

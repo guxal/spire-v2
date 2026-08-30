@@ -224,7 +224,14 @@ DATASET_SCHEMAS: dict[str, DatasetSchema] = {
     ),
     "auction_insights": DatasetSchema(
         "auction_insights",
-        ("date", "campaign_id", "row_type", "auction_participant_domain"),
+        (
+            "date",
+            "campaign_id",
+            "row_type",
+            "auction_participant_domain",
+            "participant_data_status",
+            "participant_data_limitation",
+        ),
         (
             "search_impression_share",
             "search_top_impression_share",
@@ -244,6 +251,7 @@ DATASET_SCHEMAS: dict[str, DatasetSchema] = {
         limitations=(
             "CAMPAIGN_SUMMARY and AUCTION_PARTICIPANT metrics have different meanings and must not be combined.",
             "Auction Insights eligibility and reporting thresholds can omit participants or dates.",
+            "Restricted participant metrics can be unavailable to a developer token; inspect participant_data_status and never infer a domain.",
         ),
     ),
 }

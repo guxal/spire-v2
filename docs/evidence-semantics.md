@@ -20,7 +20,9 @@ force segmented datasets to equal it:
 - asset rows can overlap when several assets serve in the same ad;
 - Auction Insights contains distinct `CAMPAIGN_SUMMARY` and
   `AUCTION_PARTICIPANT` row types, and share metrics across rows are unweighted
-  arithmetic means.
+  arithmetic means. When Google Ads restricts participant metrics, a
+  `PARTICIPANT_AVAILABILITY` row records the limitation and the campaign summary
+  remains available; no participant domain is inferred.
 
 Structural coverage remains available in `campaign_ads` and
 `campaign_assets`. Performance is exposed separately in `ad_performance`,

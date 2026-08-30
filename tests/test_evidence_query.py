@@ -18,8 +18,9 @@ class _Batch:
 
 
 class _EvidenceService:
-    def __init__(self, campaign_rows):
+    def __init__(self, campaign_rows, *, participant_query_unavailable: bool = False):
         self.campaign_rows = campaign_rows
+        self.participant_query_unavailable = participant_query_unavailable
         self.calls: list[str] = []
         self.rows = {
             "campaign_daily": [
@@ -54,6 +55,8 @@ class _EvidenceService:
             yield _Batch([{"customer.id": customer_id, "customer.descriptive_name": "Example", "customer.currency_code": "USD", "customer.time_zone": "UTC"}])
             return
         if "segments.auction_insight_domain" in query:
+            if self.participant_query_unavailable:
+                raise RuntimeError("restricted auction participant metrics")
             yield _Batch(self.rows["auction_insights"])
             return
         if "metrics.search_impression_share" in query and "FROM campaign WHERE" in query:
@@ -325,6 +328,43 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     assert len(transport.calls) == 17
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
+
+
+def test_auction_summary_survives_unavailable_participant_metrics(tmp_path, campaign_rows):
+    transport = _EvidenceService(campaign_rows, participant_query_unavailable=True)
+    provider = GoogleAdsClientProvider(
+        {"developer_token": "test", "login_customer_id": "123-456-7890"},
+        client_factory=lambda _: _EvidenceClient(transport),
+    )
+    from spire.core import WorkspacePaths
+
+    workspace = WorkspacePaths(tmp_path)
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+
+    response = EvidenceQueryService(workspace).query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "auction_insights",
+            dimensions=("row_type", "participant_data_status", "participant_data_limitation"),
+            metrics=("search_impression_share",),
+        )
+    )
+
+    assert response["aggregates"] == [
+        {
+            "row_type": "PARTICIPANT_AVAILABILITY",
+            "participant_data_status": "QUERY_UNAVAILABLE",
+            "participant_data_limitation": "Google Ads did not authorize or complete the Auction Insights participant query for this refresh.",
+            "search_impression_share": None,
+        },
+        {
+            "row_type": "CAMPAIGN_SUMMARY",
+            "participant_data_status": "NOT_APPLICABLE",
+            "participant_data_limitation": None,
+            "search_impression_share": 0.5,
+        },
+    ]
 
 
 def test_structured_dimensions_group_without_losing_json_shape(tmp_path, campaign_rows):
