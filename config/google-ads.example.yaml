@@ -1,0 +1,7 @@
+# Copy this file to config/google-ads.yaml and replace every placeholder.
+# The real file is ignored by Git and is written with owner-only permissions.
+developer_token: "REPLACE_WITH_GOOGLE_ADS_DEVELOPER_TOKEN"
+client_id: "REPLACE_WITH_GOOGLE_CLOUD_OAUTH_CLIENT_ID"
+client_secret: "REPLACE_WITH_GOOGLE_CLOUD_OAUTH_CLIENT_SECRET"
+login_customer_id: "REPLACE_WITH_MANAGER_OR_LOGIN_CUSTOMER_ID"
+# `spire auth google-ads login` adds refresh_token after OAuth completes.

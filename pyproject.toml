@@ -13,6 +13,9 @@ dependencies = [
   "PyYAML>=6.0.2",
 ]
 
+[project.scripts]
+spire = "spire.cli:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",

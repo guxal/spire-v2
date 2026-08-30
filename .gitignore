@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 .DS_Store
 .obsidian/
+config/google-ads.yaml
+.spire/customers/*/cache/google_ads_oauth.json
+.spire/customers/*/cache/.google_ads_oauth.json.lock
