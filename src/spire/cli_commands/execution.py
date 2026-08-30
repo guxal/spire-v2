@@ -29,6 +29,8 @@ def approve(ctx: CommandContext, args) -> int:
     preview = ctx.api.run_approval_preview(args.run_id)
     if ctx.json_output and not args.yes:
         raise ValueError("EXPLICIT_APPROVAL_REQUIRED_FOR_JSON")
+    if not args.yes and not ctx.interactive:
+        raise ValueError("APPROVAL_REQUIRED_INTERACTIVE")
     if not ctx.json_output:
         ctx.emit(preview, human=human_change)
     if not args.yes:

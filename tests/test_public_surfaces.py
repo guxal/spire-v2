@@ -5,7 +5,7 @@ import json
 from types import SimpleNamespace
 
 from spire.application import Application
-from spire.cli_commands import campaigns
+from spire.cli_commands import auth, campaigns, execution
 from spire.cli_commands.common import CommandContext, require_customer
 from spire.execution import CompiledOperation, GoogleAdsGateway
 from spire.mcp_server import TOOLS, McpServer, serve
@@ -68,6 +68,30 @@ def test_missing_id_is_non_interactive_failure():
         assert str(exc) == "CUSTOMER_ID_REQUIRED_NON_INTERACTIVE"
     else:
         raise AssertionError("non-interactive command should not pick")
+
+
+def test_auth_and_approval_never_prompt_without_terminal():
+    context = CommandContext(FakeApi(), no_input=True)
+    try:
+        auth.login(context, type("Args", (), {"port": 8080})())
+    except ValueError as exc:
+        assert str(exc) == "INTERACTIVE_AUTH_REQUIRED"
+    else:
+        raise AssertionError("OAuth must not prompt without a terminal")
+
+    class ApprovalApi(FakeApi):
+        def run_approval_preview(self, run_id):
+            return {"run_id": run_id, "fingerprint": "sha256:test"}
+
+    try:
+        execution.approve(
+            CommandContext(ApprovalApi(), no_input=True),
+            type("Args", (), {"run_id": "run_test123", "yes": False, "principal": None})(),
+        )
+    except ValueError as exc:
+        assert str(exc) == "APPROVAL_REQUIRED_INTERACTIVE"
+    else:
+        raise AssertionError("approval must not prompt without a terminal")
 
 
 def test_mcp_handshake_tools_and_no_approval_tool():
@@ -138,8 +162,10 @@ def test_google_ads_budget_operation_places_update_mask_on_operation():
 
     class Client:
         def get_type(self, name):
-            assert name == "MutateOperation"
-            return api_operation
+            if name == "MutateOperation":
+                return api_operation
+            assert name == "MutateGoogleAdsRequest"
+            return SimpleNamespace(customer_id="", mutate_operations=[], validate_only=False)
 
         def get_service(self, name):
             assert name == "GoogleAdsService"

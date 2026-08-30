@@ -6,6 +6,8 @@ from .common import CommandContext
 
 
 def login(ctx: CommandContext, args) -> int:
+    if not ctx.interactive:
+        raise ValueError("INTERACTIVE_AUTH_REQUIRED")
     ctx.emit(ctx.api.application.auth.login(port=args.port))
     return 0
 
