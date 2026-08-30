@@ -1,31 +1,31 @@
-# Instalación de MCP
+# MCP Installation
 
-Spire distribuye un servidor MCP JSON-RPC sobre `stdio`. No abre puertos y no
-requiere un paquete MCP adicional.
+Spire provides an MCP JSON-RPC server over `stdio`. It opens no ports and does
+not require an additional MCP package.
 
-## Instalar
+## Install
 
 ```bash
 uv sync
 ```
 
-Como alternativa:
+Alternatively:
 
 ```bash
 python -m pip install -e ".[dev]"
 ```
 
-## Iniciar el servidor
+## Start the server
 
 ```bash
 spire mcp
 ```
 
-El proceso espera mensajes JSON-RPC por `stdin` y responde por `stdout`.
-Configura el directorio de trabajo en la raíz del checkout para que Spire use
-el archivo de configuración y el workspace de ese proyecto.
+The process accepts JSON-RPC messages on `stdin` and responds on `stdout`.
+Set its working directory to the checkout root so Spire uses that project's
+configuration file and workspace.
 
-Ejemplo conceptual para Claude Desktop:
+Conceptual Claude Desktop example:
 
 ```json
 {
@@ -39,7 +39,7 @@ Ejemplo conceptual para Claude Desktop:
 }
 ```
 
-Si el ejecutable no está en el `PATH`, usa el entorno virtual explícito:
+If the executable is not on `PATH`, use the explicit virtual environment:
 
 ```json
 {
@@ -53,32 +53,32 @@ Si el ejecutable no está en el `PATH`, usa el entorno virtual explícito:
 }
 ```
 
-## Herramientas y autoridad
+## Tools and authority
 
-El servidor expone herramientas de estado de autenticación, cuentas,
-descubrimiento, refresh explícito, campañas, evidencia, candidatos negativos y
-runs. Puede preparar `UPDATE_BUDGET`, `ADD_NEGATIVE_KEYWORD` y
-`CREATE_SEARCH_CAMPAIGN` hasta `WAITING_FOR_APPROVAL`; las campañas Search se
-preparan siempre como `PAUSED`.
+The server exposes tools for authentication status, accounts, discovery,
+explicit refresh, campaigns, evidence, negative candidates, and runs. It can
+prepare `UPDATE_BUDGET`, `ADD_NEGATIVE_KEYWORD`, and
+`CREATE_SEARCH_CAMPAIGN` runs up to `WAITING_FOR_APPROVAL`; Search campaigns
+are always prepared as `PAUSED`.
 
-Los datasets segmentados de Google Ads requieren un rango finito. En
-`account_refresh`, pasa `date_range` con `start` y `end` cuando necesites
-evidencia de rendimiento.
+Segmented Google Ads datasets require a finite date range. For
+`account_refresh`, pass `date_range` with `start` and `end` when you need
+performance evidence.
 
-No expone `approve_run`, `grant_authority` ni `mint_approval`. La aprobación
-humana se realiza únicamente mediante el CLI confiable:
+It does not expose `approve_run`, `grant_authority`, or `mint_approval`.
+Human approval is performed only through the trusted CLI:
 
 ```bash
 spire runs approve --run-id <run_id>
 spire runs resume --run-id <run_id>
 ```
 
-La autenticación inicial se realiza fuera de MCP:
+Initial authentication is performed outside MCP:
 
 ```bash
 spire auth google-ads login
 spire auth google-ads verify --customer-id <customer_id>
 ```
 
-Consulta [Google Ads Authentication](google-ads-auth.md) para credenciales y
-cache de tokens.
+See [Google Ads Authentication](google-ads-auth.md) for credentials and token
+cache information.
