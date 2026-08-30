@@ -1,5 +1,6 @@
 """Canonical, account-scoped mutation lifecycle."""
 
+from .compiler import BudgetCompiler
 from .contracts import (
     AuthorityCoverage,
     AuthoritySource,
@@ -17,6 +18,7 @@ from .contracts import (
 __all__ = [
     "AuthorityCoverage",
     "AuthoritySource",
+    "BudgetCompiler",
     "ChangeKind",
     "ChangeSpec",
     "CompiledOperation",

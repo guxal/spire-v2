@@ -92,6 +92,9 @@ def normalize_campaign(row: Any, customer_id: str) -> dict[str, Any]:
             _value(row, "campaign.advertising_channel_type", "advertising_channel_type")
         ),
         "budget_id": _resource_id(_value(row, "campaign.campaign_budget", "budget_id")),
+        "campaign_budget_resource_name": str(
+            _value(row, "campaign.campaign_budget", "campaign_budget_resource_name") or ""
+        ),
         "daily_budget": _int_value(
             _value(row, "campaign_budget.amount_micros", "daily_budget", "amount_micros")
         ),
