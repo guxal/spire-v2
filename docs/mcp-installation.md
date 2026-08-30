@@ -1,64 +1,78 @@
 # Instalación de MCP
 
-## Estado actual
+Spire distribuye un servidor MCP JSON-RPC sobre `stdio`. No abre puertos y no
+requiere un paquete MCP adicional.
 
-Spire v2 todavía no distribuye un servidor MCP ejecutable. El repositorio
-contiene la superficie interna `McpExecutionSurface`, pero no contiene:
+## Instalar
 
-- un comando `spire mcp`;
-- un entrypoint MCP para `stdio`, SSE o Streamable HTTP;
-- un registro automático para Claude Desktop, Cursor u otro host MCP.
+```bash
+uv sync
+```
 
-Por lo tanto, actualmente no hay una instalación MCP soportada que añadir a
-la configuración de un cliente externo. No uses un comando o una ruta
-inventados como `spire mcp install`.
+Como alternativa:
 
-## Lo que sí se puede instalar
-
-Instala Spire como paquete editable desde la raíz del repositorio:
-
-```text
+```bash
 python -m pip install -e ".[dev]"
 ```
 
-Esto instala el paquete Python y sus herramientas de desarrollo. También
-habilita el CLI de autenticación:
+## Iniciar el servidor
 
-```text
-spire auth google-ads status
+```bash
+spire mcp
+```
+
+El proceso espera mensajes JSON-RPC por `stdin` y responde por `stdout`.
+Configura el directorio de trabajo en la raíz del checkout para que Spire use
+el archivo de configuración y el workspace de ese proyecto.
+
+Ejemplo conceptual para Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "spire": {
+      "command": "spire",
+      "args": ["mcp"],
+      "cwd": "/ruta/al/checkout/spire-v2"
+    }
+  }
+}
+```
+
+Si el ejecutable no está en el `PATH`, usa el entorno virtual explícito:
+
+```json
+{
+  "mcpServers": {
+    "spire": {
+      "command": "/ruta/al/checkout/spire-v2/.venv/bin/spire",
+      "args": ["mcp"],
+      "cwd": "/ruta/al/checkout/spire-v2"
+    }
+  }
+}
+```
+
+## Herramientas y autoridad
+
+El servidor expone herramientas de estado de autenticación, cuentas,
+descubrimiento, refresh explícito, campañas, evidencia y runs. También puede
+preparar `UPDATE_BUDGET` hasta `WAITING_FOR_APPROVAL`.
+
+No expone `approve_run`, `grant_authority` ni `mint_approval`. La aprobación
+humana se realiza únicamente mediante el CLI confiable:
+
+```bash
+spire runs approve --run-id <run_id>
+spire runs resume --run-id <run_id>
+```
+
+La autenticación inicial se realiza fuera de MCP:
+
+```bash
 spire auth google-ads login
 spire auth google-ads verify --customer-id <customer_id>
 ```
 
-La autenticación está documentada en
-[Google Ads Authentication](google-ads-auth.md).
-
-## Superficie MCP interna
-
-La clase `McpExecutionSurface` representa la frontera prevista para llamadas
-de agente, pero no es un servidor MCP ni abre un puerto. Su responsabilidad
-actual es preparar cambios a través del servicio canónico; no puede aprobar ni
-conceder autoridad a sí misma.
-
-No es necesario instalar un paquete MCP adicional para las pruebas internas.
-Las pruebas se ejecutan con:
-
-```text
-pytest
-```
-
-## Cuando exista un servidor MCP
-
-La instalación deberá documentarse junto con el entrypoint real y su contrato
-de transporte. Como mínimo, esa guía tendrá que especificar:
-
-1. instalación del paquete;
-2. comando exacto del servidor;
-3. configuración para el host MCP elegido;
-4. variables de entorno y ubicación de credenciales;
-5. herramientas expuestas;
-6. límites de autoridad y aprobación humana;
-7. comprobación con una llamada de solo lectura.
-
-Hasta que ese entrypoint exista, las capacidades Python y el CLI de
-autenticación son las únicas superficies soportadas.
+Consulta [Google Ads Authentication](google-ads-auth.md) para credenciales y
+cache de tokens.
