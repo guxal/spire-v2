@@ -40,7 +40,8 @@ WorkspacePaths + Google Ads provider
 
 The architecture, stable boundaries, and journeys are described in
 [Architecture](docs/architecture/README.md). Accepted decisions live in
-[ADRs](docs/adr/).
+[ADRs](docs/adr/). The exact supported product surface is listed in
+[Current capability scope](docs/capabilities.md).
 
 ## Current capabilities
 
