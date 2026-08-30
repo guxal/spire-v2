@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from spire.core import WorkspaceStatusService
 from spire.execution import (
     AuthorityService,
     BudgetCompiler,
@@ -40,6 +41,7 @@ class Application:
         self.workspace = workspace
         self._provider_factory = provider_factory or GoogleAdsClientProvider.for_customer
         self.runs = ExecutionRunQueryService(workspace)
+        self.workspace_status = WorkspaceStatusService(workspace)
         self.auth = GoogleAdsAuthService(
             workspace,
             provider_factory=self._provider_factory,

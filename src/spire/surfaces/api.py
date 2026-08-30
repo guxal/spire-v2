@@ -18,6 +18,9 @@ class PublicApi:
     def accounts_list(self) -> list[dict[str, str]]:
         return self.application.auth.list_accessible_accounts()
 
+    def workspace_status(self) -> dict[str, Any]:
+        return self.application.workspace_status.status()
+
     def account_refresh(
         self,
         customer_id: str,

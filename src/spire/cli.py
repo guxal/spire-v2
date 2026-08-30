@@ -3,35 +3,34 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
-from pathlib import Path
 
 from spire.application import Application
-from spire.core import SpireError, WorkspacePaths
+from spire.core import SpireError, WorkspacePaths, resolve_project_root
 from spire.surfaces import PublicApi
 
-from .cli_commands import accounts, auth, campaigns, evidence, execution
+from .cli_commands import accounts, auth, campaigns, evidence, execution, workspace
 from .cli_commands.common import CommandContext
 
 
 def main(argv: list[str] | None = None, *, application: Application | None = None) -> int:
     args = _parser().parse_args(argv)
-    if args.group == "mcp":
-        from spire.mcp_server import serve
-
-        app = application or Application(WorkspacePaths(Path(args.project_root)))
-        serve(app)
-        return 0
-    app = application or Application(WorkspacePaths(Path(args.project_root)))
-    context = CommandContext(app_api(app), args.json_output, args.no_input)
     try:
+        app = application or Application(WorkspacePaths(resolve_project_root(args.project_root)))
+        if args.group == "mcp":
+            from spire.mcp_server import serve
+
+            serve(app)
+            return 0
+        context = CommandContext(app_api(app), args.json_output, args.no_input)
         return args.handler(context, args)
     except (SpireError, ValueError, TypeError, OSError, KeyError) as exc:
         code = getattr(exc, "reason_code", None) or (
             "PROVIDER_UNAVAILABLE" if isinstance(exc, OSError) else str(exc)
         ) or type(exc).__name__
-        if args.json_output:
-            context.emit({"error": code})
+        if getattr(args, "json_output", False):
+            print(json.dumps({"error": code}, sort_keys=True))
         else:
             print(f"error: {code}", file=sys.stderr)
         return 1
@@ -43,7 +42,14 @@ def app_api(application: Application) -> PublicApi:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="spire", description="Frozen Google Ads operations")
-    parser.add_argument("--project-root", default=".", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--project-root",
+        help=(
+            "canonical workspace root; resolution order is this option, $SPIRE_PROJECT_ROOT, "
+            "then the Spire source-checkout root; fails if none is available (relative explicit "
+            "paths resolve from cwd)"
+        ),
+    )
     groups = parser.add_subparsers(dest="group", required=True)
 
     _auth_parser(groups)
@@ -111,6 +117,10 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--yes", action="store_true", help="affirm the exact displayed preview")
     resume = _leaf(run_actions, "resume", execution.resume, help="continue an approved run")
     resume.add_argument("--run-id", required=True)
+
+    workspace_group = groups.add_parser("workspace", help="inspect the active workspace")
+    workspace_actions = workspace_group.add_subparsers(dest="action", required=True)
+    _leaf(workspace_actions, "status", workspace.status, help="show safe workspace status")
 
     groups.add_parser("mcp", help="run the MCP stdio server")
     return parser
