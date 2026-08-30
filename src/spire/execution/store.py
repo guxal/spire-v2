@@ -45,7 +45,7 @@ class ExecutionStore:
         if run.state is state and not changes:
             return run
         now = utc_now()
-        updated = replace(run, state=state, updated_at=now, **changes)
+        updated = replace(run, state=state, updated_at=now, content_hash="", **changes)
         self.save_run(updated)
         self.append_event(updated.run_id, "STATE_CHANGED", {"state": state.value})
         return updated
