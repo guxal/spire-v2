@@ -14,7 +14,10 @@ EVIDENCE_DATASETS = (
     "keyword_daily",
     "campaign_ad_groups",
     "campaign_ads",
+    "ad_performance",
     "campaign_assets",
+    "campaign_asset_performance",
+    "rsa_asset_performance",
     "geo_daily",
     "schedule_day",
     "schedule_hour",
@@ -35,7 +38,10 @@ def evidence_query(dataset: str, campaign_ids: tuple[str, ...], date_range: Date
         "keyword_daily": "SELECT campaign.id, ad_group.id, ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM keyword_view WHERE campaign.id IN ({ids}){date_clause} AND ad_group_criterion.status != 'REMOVED' ORDER BY segments.date, campaign.id, ad_group.id, ad_group_criterion.criterion_id",
         "campaign_ad_groups": "SELECT campaign.id, ad_group.id, ad_group.name, ad_group.status, ad_group.type, ad_group.cpc_bid_micros FROM ad_group WHERE campaign.id IN ({ids}) AND ad_group.status != 'REMOVED' ORDER BY campaign.id, ad_group.id",
         "campaign_ads": "SELECT campaign.id, ad_group.id, ad_group_ad.ad.id, ad_group_ad.status, ad_group_ad.ad.type, ad_group_ad.ad.final_urls, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ad_group_ad.ad.responsive_search_ad.path1, ad_group_ad.ad.responsive_search_ad.path2 FROM ad_group_ad WHERE campaign.id IN ({ids}) AND ad_group_ad.status != 'REMOVED' ORDER BY campaign.id, ad_group.id, ad_group_ad.ad.id",
+        "ad_performance": "SELECT campaign.id, ad_group.id, ad_group_ad.ad.id, ad_group_ad.status, ad_group_ad.ad.type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM ad_group_ad WHERE campaign.id IN ({ids}) AND ad_group_ad.status != 'REMOVED'{date_clause} ORDER BY campaign.id, ad_group.id, ad_group_ad.ad.id",
         "campaign_assets": "SELECT campaign.id, campaign_asset.field_type, campaign_asset.status, asset.id, asset.name, asset.type, asset.sitelink_asset.link_text, asset.callout_asset.callout_text, asset.image_asset.mime_type FROM campaign_asset WHERE campaign.id IN ({ids}) AND campaign_asset.status != 'REMOVED' ORDER BY campaign.id, campaign_asset.field_type, asset.id",
+        "campaign_asset_performance": "SELECT campaign.id, campaign_asset.field_type, campaign_asset.status, asset.id, asset.name, asset.type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM campaign_asset WHERE campaign.id IN ({ids}) AND campaign_asset.status != 'REMOVED'{date_clause} ORDER BY campaign.id, campaign_asset.field_type, asset.id",
+        "rsa_asset_performance": "SELECT campaign.id, ad_group.id, ad_group_ad.ad.id, asset.id, asset.text_asset.text, ad_group_ad_asset_view.field_type, ad_group_ad_asset_view.performance_label, ad_group_ad_asset_view.pinned_field, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM ad_group_ad_asset_view WHERE campaign.id IN ({ids}) AND ad_group_ad.status != 'REMOVED'{date_clause} ORDER BY campaign.id, ad_group.id, ad_group_ad.ad.id, ad_group_ad_asset_view.field_type, asset.id",
         "geo_daily": "SELECT campaign.id, geographic_view.country_criterion_id, geographic_view.location_type, segments.date, segments.geo_target_city, segments.geo_target_region, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM geographic_view WHERE campaign.id IN ({ids}){date_clause} ORDER BY segments.date, campaign.id",
         "schedule_day": "SELECT campaign.id, segments.day_of_week, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY campaign.id, segments.day_of_week",
         "schedule_hour": "SELECT campaign.id, segments.hour, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM campaign WHERE campaign.id IN ({ids}){date_clause} ORDER BY campaign.id, segments.hour",
@@ -91,6 +97,14 @@ def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str
             final_urls=_strings(_value(row, "ad_group_ad.ad.final_urls", "final_urls")),
         )
         return result
+    if dataset == "ad_performance":
+        result.update(
+            ad_group_id=_string(_value(row, "ad_group.id", "ad_group_id")),
+            ad_id=_string(_value(row, "ad_group_ad.ad.id", "ad_id")),
+            status=_enum(_value(row, "ad_group_ad.status", "status")),
+            type=_enum(_value(row, "ad_group_ad.ad.type", "type")),
+        )
+        return _metrics(result, row)
     if dataset == "campaign_assets":
         result.update(
             asset_id=_string(_value(row, "asset.id", "asset_id")),
@@ -103,6 +117,36 @@ def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str
             mime_type=_string(_value(row, "asset.image_asset.mime_type", "mime_type")),
         )
         return result
+    if dataset == "campaign_asset_performance":
+        result.update(
+            asset_id=_string(_value(row, "asset.id", "asset_id")),
+            field_type=_enum(_value(row, "campaign_asset.field_type", "field_type")),
+            status=_enum(_value(row, "campaign_asset.status", "status")),
+            type=_enum(_value(row, "asset.type", "type")),
+            name=_string(_value(row, "asset.name", "name")),
+        )
+        return _metrics(result, row)
+    if dataset == "rsa_asset_performance":
+        result.update(
+            ad_group_id=_string(_value(row, "ad_group.id", "ad_group_id")),
+            ad_id=_string(_value(row, "ad_group_ad.ad.id", "ad_id")),
+            asset_id=_string(_value(row, "asset.id", "asset_id")),
+            asset_text=_string(_value(row, "asset.text_asset.text", "asset_text")),
+            field_type=_enum(
+                _value(row, "ad_group_ad_asset_view.field_type", "field_type")
+            ),
+            performance_label=_enum(
+                _value(
+                    row,
+                    "ad_group_ad_asset_view.performance_label",
+                    "performance_label",
+                )
+            ),
+            pinned_field=_enum(
+                _value(row, "ad_group_ad_asset_view.pinned_field", "pinned_field")
+            ),
+        )
+        return _metrics(result, row)
     if dataset == "geo_daily":
         country_criterion_id = _criterion_id(
             _value(row, "geographic_view.country_criterion_id", "country_criterion_id")

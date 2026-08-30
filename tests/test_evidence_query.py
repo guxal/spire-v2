@@ -35,7 +35,10 @@ class _EvidenceService:
             ],
             "campaign_ad_groups": [{"campaign_id": "101", "ad_group_id": "11", "ad_group_name": "Core", "status": "ENABLED", "type": "SEARCH_STANDARD"}],
             "campaign_ads": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "headlines": ["Buy shoes"], "descriptions": ["Comfortable shoes"], "final_urls": []}],
+            "ad_performance": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "impressions": 90, "clicks": 9, "cost_micros": 900_000, "conversions": 2}],
             "campaign_assets": [{"campaign_id": "101", "asset_id": "41", "field_type": "SITELINK", "status": "ENABLED", "type": "SITELINK", "name": "Sizes", "link_text": "See sizes"}],
+            "campaign_asset_performance": [{"campaign_id": "101", "asset_id": "41", "field_type": "SITELINK", "status": "ENABLED", "type": "SITELINK", "name": "Sizes", "impressions": 70, "clicks": 7, "cost_micros": 700_000, "conversions": 1}],
+            "rsa_asset_performance": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "asset_id": "51", "asset_text": "Buy shoes", "field_type": "HEADLINE", "performance_label": "BEST", "pinned_field": "HEADLINE_1", "impressions": 80, "clicks": 8, "cost_micros": 800_000, "conversions": 2}],
             "geo_daily": [{"campaign_id": "101", "date": "2026-08-01", "country_criterion_id": "100", "location_type": "LOCATION_OF_PRESENCE", "geo_city": "geoTargetConstants/200", "geo_region": "geoTargetConstants/300", "impressions": 50, "clicks": 5, "cost_micros": 500_000, "conversions": 1}],
             "schedule_day": [{"campaign_id": "101", "day_of_week": "MONDAY", "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
             "schedule_hour": [{"campaign_id": "101", "hour": 9, "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
@@ -55,6 +58,15 @@ class _EvidenceService:
             return
         if "metrics.search_impression_share" in query and "FROM campaign WHERE" in query:
             yield _Batch(self.auction_summary_rows)
+            return
+        if "FROM ad_group_ad_asset_view " in query:
+            yield _Batch(self.rows["rsa_asset_performance"])
+            return
+        if "metrics.impressions" in query and "FROM ad_group_ad " in query:
+            yield _Batch(self.rows["ad_performance"])
+            return
+        if "metrics.impressions" in query and "FROM campaign_asset " in query:
+            yield _Batch(self.rows["campaign_asset_performance"])
             return
         if "metrics.impressions" not in query and "FROM campaign WHERE" in query:
             yield _Batch(self.campaign_rows)
@@ -82,7 +94,10 @@ class _EvidenceService:
             "keyword_daily": "keyword_view",
             "campaign_ad_groups": "ad_group",
             "campaign_ads": "ad_group_ad",
+            "ad_performance": "ad_group_ad",
             "campaign_assets": "campaign_asset",
+            "campaign_asset_performance": "campaign_asset",
+            "rsa_asset_performance": "ad_group_ad_asset_view",
             "geo_daily": "geographic_view",
             "schedule_day": "campaign",
             "schedule_hour": "campaign",
@@ -236,12 +251,71 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
         }
     ]
 
-    for dataset in ("campaign_ad_groups", "campaign_ads", "campaign_assets", "geo_daily", "schedule_day", "schedule_hour", "auction_insights"):
+    ad_performance = service.query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "ad_performance",
+            dimensions=("ad_id", "type"),
+            metrics=("impressions", "clicks", "conversions", "ctr", "cpa_micros"),
+        )
+    )
+    assert ad_performance["aggregates"] == [
+        {
+            "ad_id": "31",
+            "type": "RESPONSIVE_SEARCH_AD",
+            "impressions": 90,
+            "clicks": 9,
+            "conversions": 2,
+            "ctr": 0.1,
+            "cpa_micros": 450_000.0,
+        }
+    ]
+    campaign_asset_performance = service.query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "campaign_asset_performance",
+            dimensions=("asset_id", "field_type"),
+            metrics=("impressions", "clicks", "conversions"),
+        )
+    )
+    assert campaign_asset_performance["aggregates"] == [
+        {
+            "asset_id": "41",
+            "field_type": "SITELINK",
+            "impressions": 70,
+            "clicks": 7,
+            "conversions": 1,
+        }
+    ]
+    rsa_assets = service.query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "rsa_asset_performance",
+            dimensions=("asset_text", "field_type", "performance_label", "pinned_field"),
+            metrics=("impressions", "clicks", "conversions"),
+        )
+    )
+    assert rsa_assets["aggregates"] == [
+        {
+            "asset_text": "Buy shoes",
+            "field_type": "HEADLINE",
+            "performance_label": "BEST",
+            "pinned_field": "HEADLINE_1",
+            "impressions": 80,
+            "clicks": 8,
+            "conversions": 2,
+        }
+    ]
+
+    for dataset in ("campaign_ad_groups", "campaign_ads", "ad_performance", "campaign_assets", "campaign_asset_performance", "rsa_asset_performance", "geo_daily", "schedule_day", "schedule_hour", "auction_insights"):
         result = service.query(EvidenceQueryRequest("1234567890", ("101",), dataset))
         assert result["schema"]["dataset"] == dataset
         assert result["scope"]["extraction_id"].startswith("extract_")
 
-    assert len(transport.calls) == 14
+    assert len(transport.calls) == 17
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
 

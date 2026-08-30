@@ -95,9 +95,33 @@ DATASET_SCHEMAS: dict[str, DatasetSchema] = {
         "campaign_ads", ("campaign_id", "ad_group_id", "ad_id", "status", "type", "headlines", "descriptions", "path1", "path2", "final_urls"),
         (),
     ),
+    "ad_performance": DatasetSchema(
+        "ad_performance",
+        ("campaign_id", "ad_group_id", "ad_id", "status", "type"),
+        ("impressions", "clicks", "cost_micros", "conversions", "conversions_value"),
+    ),
     "campaign_assets": DatasetSchema(
         "campaign_assets", ("campaign_id", "asset_id", "field_type", "status", "type", "name", "link_text", "callout_text", "mime_type"),
         (),
+    ),
+    "campaign_asset_performance": DatasetSchema(
+        "campaign_asset_performance",
+        ("campaign_id", "asset_id", "field_type", "status", "type", "name"),
+        ("impressions", "clicks", "cost_micros", "conversions", "conversions_value"),
+    ),
+    "rsa_asset_performance": DatasetSchema(
+        "rsa_asset_performance",
+        (
+            "campaign_id",
+            "ad_group_id",
+            "ad_id",
+            "asset_id",
+            "asset_text",
+            "field_type",
+            "performance_label",
+            "pinned_field",
+        ),
+        ("impressions", "clicks", "cost_micros", "conversions", "conversions_value"),
     ),
     "geo_daily": DatasetSchema(
         "geo_daily",

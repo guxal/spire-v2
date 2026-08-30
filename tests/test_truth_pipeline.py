@@ -30,7 +30,7 @@ def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
     )
     assert refreshed.manifest.status == "FINALIZED"
     assert refreshed.manifest.datasets["campaigns"]["state"] == DatasetState.PRESENT
-    assert len(calls) == 14
+    assert len(calls) == 17
 
     snapshot = AccountSnapshotService(workspace).current("1234567890", campaign_ids=("101",))
     assert snapshot.source.value == "LIVE"
