@@ -247,9 +247,9 @@ def _search_campaign_operations(client: Any, operation: CompiledOperation) -> li
     create.network_settings.target_content_network = False
     create.network_settings.target_partner_search_network = False
     if payload["bidding_strategy"] == "MAXIMIZE_CONVERSIONS":
-        create.maximize_conversions = client.get_type("MaximizeConversions")
+        create.maximize_conversions = {}
     else:
-        create.maximize_clicks = client.get_type("MaximizeClicks")
+        create.maximize_clicks = {}
     result.append(campaign)
 
     for target_id in payload["geo_target_ids"]:

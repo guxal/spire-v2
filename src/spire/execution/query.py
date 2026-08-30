@@ -152,6 +152,7 @@ class ExecutionRunQueryService:
             "validate_only_result": (
                 "REMOTE_VALIDATED" if preview_status == "PASSED" else "NOT_VALIDATED"
             ),
+            "preview": dict(run.preview or {}),
             "policy": (run.policy or {}).get("status"),
             "fingerprint": run.approval_fingerprint or None,
             **summary,
