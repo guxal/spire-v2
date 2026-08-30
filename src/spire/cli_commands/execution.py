@@ -29,13 +29,17 @@ def approve(ctx: CommandContext, args) -> int:
     preview = ctx.api.run_approval_preview(args.run_id)
     if ctx.json_output and not args.yes:
         raise ValueError("EXPLICIT_APPROVAL_REQUIRED_FOR_JSON")
+    if not ctx.json_output:
+        ctx.emit(preview, human=human_change)
     if not args.yes:
-        ctx.write(human_change({**preview, "state": "WAITING_FOR_APPROVAL"}))
         answer = ctx.input_fn("Approve this exact run? [y/N]: ").strip().lower()
         if answer not in {"y", "yes"}:
             raise ValueError("APPROVAL_NOT_CONFIRMED")
     result = ctx.api.run_approve(args.run_id, principal_id=args.principal or getpass.getuser())
-    ctx.emit(result)
+    if ctx.json_output:
+        ctx.emit({"preview": preview, "approval": result})
+    else:
+        ctx.emit(result)
     return 0
 
 

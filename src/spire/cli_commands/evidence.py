@@ -5,6 +5,8 @@ from .common import CommandContext, require_campaign, require_customer
 
 def query(ctx: CommandContext, args) -> int:
     customer_id = require_customer(ctx, args.customer_id)
+    if bool(args.date_start) != bool(args.date_end):
+        raise ValueError("DATE_RANGE_BOTH_BOUNDS_REQUIRED")
     campaign_ids = args.campaign_id or [require_campaign(ctx, customer_id, None)]
     payload = ctx.api.evidence_query(
         customer_id,

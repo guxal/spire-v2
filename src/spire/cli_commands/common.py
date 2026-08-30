@@ -98,16 +98,19 @@ def human_refresh(payload: dict[str, Any]) -> str:
 
 
 def human_change(payload: dict[str, Any]) -> str:
-    return "\n".join(
-        (
-            f"Run: {payload['run_id']}",
-            f"Campaign: {payload.get('campaign_id', '')}",
-            f"Current: {payload.get('current', 'unknown')}",
-            f"Proposed: {payload.get('proposed', 'unknown')}",
-            f"Delta: {payload.get('delta', 'unknown')}",
-            f"Dry-run: {payload.get('dry_run', 'REMOTE_VALIDATED')}",
-            f"Policy: {payload.get('policy', 'ALLOWED')}",
-            f"Authority: {payload.get('authority', 'HUMAN_APPROVAL_REQUIRED')}",
-            f"Status: {payload.get('state', 'WAITING_FOR_APPROVAL')}",
-        )
-    )
+    lines = [
+        f"Run: {payload['run_id']}",
+        f"Campaign: {payload.get('campaign_id', '')}",
+        f"Current: {payload.get('current', 'unknown')}",
+        f"Proposed: {payload.get('proposed', 'unknown')}",
+        f"Delta: {payload.get('delta', 'unknown')}",
+        f"Dry-run: {payload.get('dry_run', 'REMOTE_VALIDATED')}",
+        f"Policy: {payload.get('policy', 'ALLOWED')}",
+        f"Authority: {payload.get('authority', 'HUMAN_APPROVAL_REQUIRED')}",
+        f"Status: {payload.get('state', 'WAITING_FOR_APPROVAL')}",
+    ]
+    if payload.get("fingerprint"):
+        lines.append(f"Fingerprint: {payload['fingerprint']}")
+    if payload.get("operation"):
+        lines.append(f"Operation: {payload['operation']}")
+    return "\n".join(lines)
