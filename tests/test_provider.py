@@ -30,3 +30,29 @@ def test_provider_instances_are_isolated():
     )
     assert first.get_client() is not second.get_client()
     assert [item[0] for item in clients] == ["one", "two"]
+
+
+def test_provider_uses_injected_credential_provider_for_client_construction(monkeypatch):
+    credentials = object()
+    calls = []
+
+    class CredentialProvider:
+        def get_credentials(self):
+            calls.append("credentials")
+            return credentials
+
+    client = object()
+    monkeypatch.setattr("spire.google_ads.provider._build_google_ads_client", lambda config, value: client)
+    provider = GoogleAdsClientProvider(
+        GoogleAdsConfig(
+            {
+                "developer_token": "x",
+                "client_id": "client",
+                "client_secret": "secret",
+                "refresh_token": "refresh",
+            }
+        ),
+        credential_provider=CredentialProvider(),
+    )
+    assert provider.get_client() is client
+    assert calls == ["credentials"]

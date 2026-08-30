@@ -19,3 +19,11 @@ class ScopeMismatchError(SpireError):
 
 class PublicationError(SpireError):
     """An extraction could not be atomically published."""
+
+
+class GoogleAdsAuthError(SpireError):
+    """A Google Ads authentication or account-access operation failed."""
+
+    def __init__(self, reason_code: str, message: str = "Google Ads authentication failed") -> None:
+        self.reason_code = reason_code
+        super().__init__(reason_code if message == "Google Ads authentication failed" else message)

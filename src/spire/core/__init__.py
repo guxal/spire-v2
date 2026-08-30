@@ -1,6 +1,12 @@
 """Core identity and workspace contracts."""
 
-from .errors import ArtifactIdentityError, ArtifactNotFoundError, ScopeMismatchError, SpireError
+from .errors import (
+    ArtifactIdentityError,
+    ArtifactNotFoundError,
+    GoogleAdsAuthError,
+    ScopeMismatchError,
+    SpireError,
+)
 from .identity import (
     assert_loaded_scope,
     assert_resolved_below_root,
@@ -17,6 +23,7 @@ from .workspace import WorkspacePaths, initialize_customer_workspace
 __all__ = [
     "ArtifactIdentityError",
     "ArtifactNotFoundError",
+    "GoogleAdsAuthError",
     "ScopeMismatchError",
     "SpireError",
     "WorkspacePaths",

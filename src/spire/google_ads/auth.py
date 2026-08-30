@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -10,10 +12,31 @@ import yaml
 SCOPES = ["https://www.googleapis.com/auth/adwords"]
 
 
-def run_installed_app_oauth(client_secret_file: Path, port: int = 8080) -> dict[str, Any]:
+def run_installed_app_oauth(
+    client_secret_file: Path | None = None,
+    port: int = 8080,
+    *,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+) -> dict[str, Any]:
     from google_auth_oauthlib.flow import InstalledAppFlow
 
-    flow = InstalledAppFlow.from_client_secrets_file(str(client_secret_file), scopes=SCOPES)
+    if client_id and client_secret:
+        flow = InstalledAppFlow.from_client_config(
+            {
+                "installed": {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            },
+            scopes=SCOPES,
+        )
+    elif client_secret_file is not None:
+        flow = InstalledAppFlow.from_client_secrets_file(str(client_secret_file), scopes=SCOPES)
+    else:
+        raise ValueError("OAUTH_CLIENT_CONFIG_REQUIRED")
     credentials = flow.run_local_server(
         host="localhost",
         port=port,
@@ -48,5 +71,19 @@ def write_google_ads_config(
         config["login_customer_id"] = login_customer_id
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(config, handle, sort_keys=False)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{output_path.name}.", dir=output_path.parent)
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(config, handle, sort_keys=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(output_path)
+        try:
+            os.chmod(output_path, 0o600)
+        except OSError:
+            pass
+    finally:
+        if temporary.exists():
+            temporary.unlink()

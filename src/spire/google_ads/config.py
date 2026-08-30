@@ -12,6 +12,12 @@ import yaml
 
 from spire.core import validate_customer_id
 
+GOOGLE_ADS_CONFIG_RELATIVE_PATH = Path("config/google-ads.yaml")
+
+
+def default_google_ads_config_path(project_root: Path) -> Path:
+    return Path(project_root).absolute() / GOOGLE_ADS_CONFIG_RELATIVE_PATH
+
 
 @dataclass(frozen=True, slots=True)
 class GoogleAdsConfig:
