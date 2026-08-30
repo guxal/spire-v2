@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from spire.core import ArtifactNotFoundError, validate_customer_id, validate_google_ads_id
@@ -61,7 +62,7 @@ class CampaignReadService:
                     "status": row.get("status"),
                     "serving_status": row.get("serving_status"),
                     "channel": row.get("channel"),
-                    "daily_budget": row.get("daily_budget"),
+                    "daily_budget": _currency_units(row.get("daily_budget")),
                     "currency": row.get("currency"),
                     "observed_at": snapshot.observed_at,
                     "freshness": dict(snapshot.freshness),
@@ -78,6 +79,15 @@ def _public_campaign(row: dict[str, Any]) -> dict[str, Any]:
         "status": row.get("status"),
         "serving_status": row.get("serving_status"),
         "channel": row.get("channel"),
-        "daily_budget": row.get("daily_budget"),
+        "daily_budget": _currency_units(row.get("daily_budget")),
         "currency": row.get("currency"),
     }
+
+
+def _currency_units(value: Any) -> int | float | None:
+    if value in (None, ""):
+        return None
+    amount = Decimal(str(value)) / Decimal(1_000_000)
+    if amount == amount.to_integral_value():
+        return int(amount)
+    return float(amount)

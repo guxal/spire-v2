@@ -44,7 +44,7 @@ def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
     campaign = reads.get("1234567890", "101")
     assert len(calls) == before_read
     assert campaign["campaign_id"] == "101"
-    assert campaign["daily_budget"] == 12500000
+    assert campaign["daily_budget"] == 12.5
     assert campaign["observed_at"] == snapshot.observed_at
     assert campaign["scope"] == dict(snapshot.scope)
     assert campaign["evidence_id"] == snapshot.extraction_id
