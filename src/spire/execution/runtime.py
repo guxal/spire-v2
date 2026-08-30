@@ -18,11 +18,7 @@ class GoogleAdsGateway:
 
     def validate_only(self, operation: CompiledOperation) -> PreviewResult:
         try:
-            self._service().mutate(
-                customer_id=operation.customer_id,
-                operations=[self._api_operation(operation)],
-                validate_only=True,
-            )
+            self._mutate(operation, validate_only=True)
         except Exception as exc:  # noqa: BLE001 - provider boundary normalizes failures
             return PreviewResult(
                 status="REJECTED",
@@ -35,17 +31,21 @@ class GoogleAdsGateway:
 
     def mutate(self, operation: CompiledOperation) -> dict[str, Any]:
         try:
-            response = self._service().mutate(
-                customer_id=operation.customer_id,
-                operations=[self._api_operation(operation)],
-                validate_only=False,
-            )
+            response = self._mutate(operation, validate_only=False)
         except Exception as exc:
             raise ProviderUnavailableError(str(exc)) from exc
         return {"status": "SENT", "provider_response_type": type(response).__name__}
 
     def _service(self):
         return self.client_provider.get_client().get_service("GoogleAdsService")
+
+    def _mutate(self, operation: CompiledOperation, *, validate_only: bool):
+        client = self.client_provider.get_client()
+        request = client.get_type("MutateGoogleAdsRequest")
+        request.customer_id = operation.customer_id
+        request.mutate_operations.append(self._api_operation(operation))
+        request.validate_only = validate_only
+        return self._service().mutate(request=request)
 
     def _api_operation(self, operation: CompiledOperation):
         client = self.client_provider.get_client()
@@ -54,10 +54,7 @@ class GoogleAdsGateway:
         update = budget_operation.update
         update.resource_name = operation.budget_resource_name
         update.amount_micros = operation.daily_budget_micros
-        update_mask = getattr(budget_operation, "update_mask", None)
-        if update_mask is None:  # minimal test doubles may expose it on the update resource
-            update_mask = update.update_mask
-        update_mask.paths.append("amount_micros")
+        budget_operation.update_mask.paths.append("amount_micros")
         return api_operation
 
 

@@ -22,8 +22,8 @@ from spire.truth import AccountSnapshotService
 
 class _MutableService(FakeGoogleAdsService):
     def mutate(self, **request):
-        if not request["validate_only"]:
-            update = request["operations"][0].campaign_budget_operation.update
+        if not request["request"].validate_only:
+            update = request["request"].mutate_operations[0].campaign_budget_operation.update
             for row in self.rows:
                 if row.get("campaign.id") == "101":
                     row["campaign_budget.amount_micros"] = update.amount_micros
@@ -39,9 +39,11 @@ class _MutableClient:
         return self.service
 
     def get_type(self, name):
-        assert name == "MutateOperation"
-        update = SimpleNamespace(resource_name="", amount_micros=0, update_mask=SimpleNamespace(paths=[]))
-        return SimpleNamespace(campaign_budget_operation=SimpleNamespace(update=update))
+        if name == "MutateOperation":
+            update = SimpleNamespace(resource_name="", amount_micros=0)
+            return SimpleNamespace(campaign_budget_operation=SimpleNamespace(update=update, update_mask=SimpleNamespace(paths=[])))
+        assert name == "MutateGoogleAdsRequest"
+        return SimpleNamespace(customer_id="", mutate_operations=[], validate_only=False)
 
 
 def test_fresh_workspace_reaches_verified_without_old_data(campaign_rows, tmp_path):

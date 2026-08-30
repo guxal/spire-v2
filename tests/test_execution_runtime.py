@@ -16,8 +16,9 @@ class _Service:
 
     def mutate(self, **kwargs):
         self.calls.append(kwargs)
-        if not kwargs["validate_only"]:
-            self.budget = kwargs["operations"][0].campaign_budget_operation.update.amount_micros
+        request = kwargs["request"]
+        if not request.validate_only:
+            self.budget = request.mutate_operations[0].campaign_budget_operation.update.amount_micros
         return SimpleNamespace()
 
     def search_stream(self, *, customer_id, query):
@@ -34,9 +35,11 @@ class _Client:
         return self.service
 
     def get_type(self, name):
-        assert name == "MutateOperation"
-        update = SimpleNamespace(resource_name="", amount_micros=0, update_mask=SimpleNamespace(paths=[]))
-        return SimpleNamespace(campaign_budget_operation=SimpleNamespace(update=update))
+        if name == "MutateOperation":
+            update = SimpleNamespace(resource_name="", amount_micros=0)
+            return SimpleNamespace(campaign_budget_operation=SimpleNamespace(update=update, update_mask=SimpleNamespace(paths=[])))
+        assert name == "MutateGoogleAdsRequest"
+        return SimpleNamespace(customer_id="", mutate_operations=[], validate_only=False)
 
 
 def test_validate_mutate_and_readback_share_one_provider_client():
@@ -56,7 +59,7 @@ def test_validate_mutate_and_readback_share_one_provider_client():
     assert sent["status"] == "SENT"
     assert verification.status == "VERIFIED"
     assert provider.get_client() is client
-    assert [call["validate_only"] for call in client.service.calls if "validate_only" in call] == [True, False]
+    assert [call["request"].validate_only for call in client.service.calls if "request" in call] == [True, False]
 
 
 def test_semantic_readback_rejects_the_wrong_budget():
