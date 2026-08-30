@@ -2,7 +2,8 @@
 type: adr
 decision: ADR-0003
 domain: extraction
-status: accepted
+status: superseded
+superseded_by: ADR-0017
 ---
 
 # ADR-0003 — Refresh requires an explicit campaign scope

@@ -2,7 +2,8 @@
 type: adr
 decision: ADR-0002
 domain: google-ads
-status: accepted
+status: superseded
+superseded_by: ADR-0016
 ---
 
 # ADR-0002 — Monetary values remain integer micros
