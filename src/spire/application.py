@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from spire.execution import (
     AuthorityService,
     BudgetCompiler,
+    ExecutionRunQueryService,
     ExecutionRunService,
     HardPolicyService,
     ProductionRuntime,
@@ -38,6 +39,7 @@ class Application:
     def __init__(self, workspace, *, provider_factory: Callable | None = None) -> None:
         self.workspace = workspace
         self._provider_factory = provider_factory or GoogleAdsClientProvider.for_customer
+        self.runs = ExecutionRunQueryService(workspace)
         self.auth = GoogleAdsAuthService(
             workspace,
             provider_factory=self._provider_factory,

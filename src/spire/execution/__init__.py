@@ -16,6 +16,7 @@ from .contracts import (
     VerificationResult,
 )
 from .policy import HardPolicyService
+from .query import ExecutionRunQueryService
 from .runtime import GoogleAdsGateway, ProductionRuntime, ProviderUnavailableError, SemanticReadBack
 from .service import ExecutionRunService
 
@@ -29,6 +30,7 @@ __all__ = [
     "CompiledOperation",
     "ExecutionMode",
     "ExecutionRun",
+    "ExecutionRunQueryService",
     "ExecutionRunService",
     "ExecutionRunState",
     "GoogleAdsGateway",

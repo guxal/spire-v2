@@ -53,6 +53,18 @@ class ExecutionStore:
     def load_run(self, run_id: str) -> ExecutionRun:
         return ExecutionRun(**self._read("runs", run_id))
 
+    def list_runs(self) -> tuple[ExecutionRun, ...]:
+        """Load canonical runs for this account without exposing storage layout."""
+
+        runs_root = safe_child(self.root, "runs", field="execution_category")
+        if not runs_root.is_dir():
+            return ()
+        return tuple(
+            self.load_run(path.stem)
+            for path in sorted(runs_root.glob("*.json"))
+            if path.is_file()
+        )
+
     def transition(self, run: ExecutionRun, state: ExecutionRunState, **changes) -> ExecutionRun:
         if run.state is state and not changes:
             return run

@@ -96,6 +96,13 @@ def _parser() -> argparse.ArgumentParser:
 
     runs_group = groups.add_parser("runs", help="inspect and continue execution runs")
     run_actions = runs_group.add_subparsers(dest="action", required=True)
+    run_list = _leaf(run_actions, "list", execution.list_runs, help="discover runs")
+    run_list.add_argument("--customer-id")
+    run_list.add_argument("--campaign-id")
+    run_list.add_argument("--status")
+    run_list.add_argument("--limit", type=int, default=100)
+    run_list.add_argument("--latest", action="store_true")
+    run_list.add_argument("--order-by", choices=("created_at", "updated_at"), default="created_at")
     run_get = _leaf(run_actions, "get", execution.get_run, help="inspect a run")
     run_get.add_argument("--run-id", required=True)
     approve = _leaf(run_actions, "approve", execution.approve, help="approve one exact run")

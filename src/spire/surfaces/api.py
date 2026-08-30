@@ -7,10 +7,8 @@ from typing import Any
 
 from spire.application import Application
 from spire.core import validate_customer_id, validate_google_ads_id
-from spire.execution.store import ExecutionStore
 from spire.google_ads import RefreshSpec
 from spire.interfaces import DATASET_SCHEMAS, DateRange, EvidenceQueryRequest
-from spire.truth import DatasetResolver
 
 
 class PublicApi:
@@ -138,68 +136,44 @@ class PublicApi:
         return {**prepared, **self.run_approval_preview(prepared["run_id"])}
 
     def run_get(self, run_id: str) -> dict[str, Any]:
-        store, run = ExecutionStore.find(self.application.workspace, run_id)
-        payload = run.to_dict()
-        compiled = dict(payload.get("compiled_operation") or {})
-        compiled.pop("budget_resource_name", None)
-        payload["compiled_operation"] = compiled or None
-        payload["customer_id"] = store.customer_id
-        return payload
+        return self.application.runs.get_run(run_id)
+
+    def runs_list(
+        self,
+        *,
+        customer_id: str | None = None,
+        campaign_id: str | None = None,
+        state: str | None = None,
+        order_by: str = "created_at",
+        limit: int = 100,
+        latest: bool = False,
+    ) -> list[dict[str, Any]] | dict[str, Any]:
+        runs = self.application.runs.list_runs(
+            customer_id=customer_id,
+            campaign_id=campaign_id,
+            state=state,
+            order_by=order_by,
+            limit=1 if latest else limit,
+        )
+        return runs[0] if latest else list(runs)
 
     def run_approval_preview(self, run_id: str) -> dict[str, Any]:
-        store, run = ExecutionStore.find(self.application.workspace, run_id)
-        spec = store.load_spec(run.spec_id)
-        operation = dict(run.compiled_operation or {})
-        resolver = DatasetResolver(self.application.workspace, store.customer_id)
-        dataset = resolver.resolve_dataset(
-            str(run.snapshot_ref["extraction_id"]),
-            "campaigns",
-            campaign_ids=(str(spec.target["campaign_id"]),),
-        )
-        current_micros = next(
-            (
-                int(row["daily_budget"])
-                for row in dataset.rows
-                if str(row.get("campaign_id")) == str(spec.target["campaign_id"])
-                and row.get("daily_budget") is not None
-            ),
-            None,
-        )
-        proposed = str(spec.requested_change["daily_budget"])
-        current = _currency_units(current_micros)
-        return {
-            "customer_id": store.customer_id,
-            "campaign_id": str(spec.target["campaign_id"]),
-            "current": current,
-            "proposed": proposed,
-            "delta": _subtract_currency(proposed, current),
-            "environment": run.mode.value,
-            "dry_run": "REMOTE_VALIDATED" if (run.preview or {}).get("status") == "PASSED" else "NOT_VALIDATED",
-            "policy": (run.policy or {}).get("status"),
-            "authority": "HUMAN_APPROVAL_REQUIRED",
-            "run_id": run.run_id,
-            "fingerprint": run.approval_fingerprint,
-            "operation": {
-                "kind": operation.get("kind"),
-                "campaign_id": operation.get("campaign_id"),
-                "daily_budget_micros": operation.get("daily_budget_micros"),
-            },
-        }
+        return self.application.runs.approval_preview(run_id)
 
     def run_approve(self, run_id: str, *, principal_id: str) -> dict[str, Any]:
-        store, _run = ExecutionStore.find(self.application.workspace, run_id)
-        return self.application.for_customer(store.customer_id).execution.approve_human(
+        run = self.application.runs.get_run(run_id)
+        return self.application.for_customer(run["customer_id"]).execution.approve_human(
             run_id,
-            customer_id=store.customer_id,
+            customer_id=run["customer_id"],
             principal_id=principal_id,
             affirmation=True,
         )
 
     def run_resume(self, run_id: str) -> dict[str, Any]:
-        store, _ = ExecutionStore.find(self.application.workspace, run_id)
-        return self.application.for_customer(store.customer_id).execution.execute_approved(
+        run = self.application.runs.get_run(run_id)
+        return self.application.for_customer(run["customer_id"]).execution.execute_approved(
             run_id,
-            customer_id=store.customer_id,
+            customer_id=run["customer_id"],
         )
 
 
@@ -221,10 +195,3 @@ def _currency_units(micros: Any) -> int | float | None:
         return None
     amount = Decimal(str(micros)) / Decimal(1_000_000)
     return int(amount) if amount == amount.to_integral_value() else float(amount)
-
-
-def _subtract_currency(proposed: str, current: float | None) -> int | float | None:
-    if current is None:
-        return None
-    value = Decimal(proposed) - Decimal(str(current))
-    return int(value) if value == value.to_integral_value() else float(value)

@@ -7,9 +7,16 @@ def test_public_adapters_do_not_construct_google_clients_or_read_storage():
     cli_sources = list((ROOT / "src" / "spire" / "cli_commands").glob("*.py"))
     cli_sources.append(ROOT / "src" / "spire" / "cli.py")
     mcp_source = ROOT / "src" / "spire" / "mcp_server.py"
-    public_text = "\n".join(path.read_text(encoding="utf-8") for path in [*cli_sources, mcp_source])
+    api_source = ROOT / "src/spire/surfaces/api.py"
+    public_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in [*cli_sources, mcp_source, api_source]
+    )
     assert "GoogleAdsClient" not in public_text
     assert "DatasetResolver" not in public_text
+    assert "ExecutionStore" not in public_text
+    assert ".spire" not in public_text
+    assert ".glob(" not in public_text
+    assert ".rglob(" not in public_text
     assert ".parquet" not in public_text
     assert "approve_run" not in public_text
 

@@ -37,6 +37,10 @@ class FakeApi:
     def campaigns_get(self, customer_id, campaign_id):
         return {"campaign_id": campaign_id, "name": "Search", "daily_budget": 10, "currency": "USD"}
 
+    def runs_list(self, **filters):
+        self.runs_filters = filters
+        return [{"run_id": "run_test", "state": "WAITING_FOR_APPROVAL"}]
+
 
 def test_picker_selects_account_and_explicit_id_skips_picker(monkeypatch):
     api = FakeApi()
@@ -101,8 +105,41 @@ def test_mcp_handshake_tools_and_no_approval_tool():
     listed = server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {tool["name"] for tool in listed["result"]["tools"]}
     assert "change_budget" in names
+    assert "runs_list" in names
     assert "approve_run" not in names
     assert "grant_authority" not in names
+
+
+def test_mcp_runs_list_delegates_safe_filters_to_public_api():
+    api = FakeApi()
+    server = McpServer(api)
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "runs_list",
+                "arguments": {
+                    "customer_id": "1234567890",
+                    "campaign_id": "101",
+                    "status": "waiting_for_approval",
+                    "limit": 3,
+                    "latest": True,
+                    "order_by": "updated_at",
+                },
+            },
+        }
+    )
+    assert response["result"]["isError"] is False
+    assert api.runs_filters == {
+        "customer_id": "1234567890",
+        "campaign_id": "101",
+        "state": "waiting_for_approval",
+        "limit": 3,
+        "latest": True,
+        "order_by": "updated_at",
+    }
 
 
 def test_mcp_stdio_is_json_rpc_and_uses_structured_content():
