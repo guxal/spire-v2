@@ -1,0 +1,12 @@
+filters:
+  or:
+    - file.inFolder("docs/architecture")
+    - file.inFolder("docs/adr")
+    - file.inFolder("docs/development")
+views:
+  - type: table
+    name: Architecture notes
+    order:
+      - file.name
+      - domain
+      - status
