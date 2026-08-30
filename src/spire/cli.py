@@ -39,7 +39,7 @@ def _parser() -> argparse.ArgumentParser:
     login.add_argument("--port", type=int, default=8080)
     actions.add_parser("status")
     verify = actions.add_parser("verify")
-    verify.add_argument("--customer-id", required=True)
+    verify.add_argument("--customer-id")
     return parser
 
 

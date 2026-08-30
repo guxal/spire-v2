@@ -84,10 +84,22 @@ class GoogleAdsAuthService:
             "cached_token_expiry": expiry,
         }
 
-    def verify(self, customer_id: str) -> dict[str, str]:
-        customer_id = validate_customer_id(customer_id)
+    def verify(
+        self,
+        customer_id: str | None = None,
+        *,
+        input_fn: Callable[[str], str] | None = None,
+        output_fn: Callable[[str], None] | None = None,
+    ) -> dict[str, str]:
         config = self._load_config(required=True)
         _require_config(config, ("developer_token", "client_id", "client_secret", "refresh_token"))
+        if customer_id is None:
+            customer_id = self._pick_customer(
+                config,
+                input_fn=input_fn or input,
+                output_fn=output_fn or print,
+            )
+        customer_id = validate_customer_id(customer_id)
         provider = self._provider_factory(
             self.workspace, customer_id, config_path=self.config_path
         )
@@ -119,6 +131,65 @@ class GoogleAdsAuthService:
             "token_cache": "HIT" if credential_provider.cache_hits > cache_hit_before else "MISS",
         }
 
+    def list_accessible_accounts(self) -> list[dict[str, str]]:
+        """List account choices from the configured MCC using harmless reads."""
+
+        config = self._load_config(required=True)
+        _require_config(config, ("developer_token", "client_id", "client_secret", "refresh_token"))
+        login_customer_id = _normalized_login(config.get("login_customer_id"))
+        if login_customer_id is None:
+            raise GoogleAdsAuthError("INVALID_LOGIN_CUSTOMER")
+        provider = self._provider_factory(
+            self.workspace, login_customer_id, config_path=self.config_path
+        )
+        try:
+            client = provider.get_client()
+            customer_service = client.get_service("CustomerService")
+            response = customer_service.list_accessible_customers()
+            resource_names = _response_values(response, "resource_names")
+        except GoogleAdsAuthError:
+            raise
+        except Exception as exc:
+            code = "CUSTOMER_ACCESS_DENIED" if _looks_like_access_denial(exc) else "PROVIDER_UNAVAILABLE"
+            raise GoogleAdsAuthError(code) from exc
+        accounts = []
+        for resource_name in resource_names:
+            candidate = str(resource_name).rsplit("/", 1)[-1]
+            try:
+                account_id = validate_customer_id(candidate)
+            except ValueError:
+                continue
+            name = self._account_name(provider, account_id)
+            accounts.append({"customer_id": account_id, "name": name or "Unnamed account"})
+        if not accounts:
+            raise GoogleAdsAuthError("CUSTOMER_ACCESS_DENIED")
+        return accounts
+
+    def _pick_customer(self, config: dict[str, Any], *, input_fn, output_fn) -> str:
+        del config
+        accounts = self.list_accessible_accounts()
+        output_fn("Available Google Ads accounts:")
+        for index, account in enumerate(accounts, start=1):
+            output_fn(f"[{index}] {account['name']} ({account['customer_id']})")
+        choice = input_fn("Select account number: ").strip()
+        try:
+            selected = accounts[int(choice) - 1]
+        except (ValueError, IndexError) as exc:
+            raise GoogleAdsAuthError("CUSTOMER_SELECTION_INVALID") from exc
+        return selected["customer_id"]
+
+    @staticmethod
+    def _account_name(provider, customer_id: str) -> str:
+        try:
+            service = provider.get_client().get_service("GoogleAdsService")
+            query = "SELECT customer.id, customer.descriptive_name FROM customer LIMIT 1"
+            for batch in service.search_stream(customer_id=customer_id, query=query):
+                for row in batch.results:
+                    return str(_value(row, "customer.descriptive_name", "descriptive_name") or "")
+        except Exception:  # noqa: BLE001 - an ID remains a valid picker fallback
+            return ""
+        return ""
+
     def _load_config(self, *, required: bool) -> dict[str, Any]:
         if not self.config_path.exists():
             if required:
@@ -148,3 +219,23 @@ def _normalized_login(value: Any) -> str | None:
 def _looks_like_access_denial(exc: Exception) -> bool:
     text = str(exc).upper()
     return any(value in text for value in ("PERMISSION_DENIED", "USER_PERMISSION_DENIED", "CUSTOMER_NOT_FOUND"))
+
+
+def _response_values(response: Any, field: str) -> list[Any]:
+    if isinstance(response, dict):
+        return list(response.get(field) or ())
+    return list(getattr(response, field, ()) or ())
+
+
+def _value(row: Any, *names: str) -> Any:
+    for name in names:
+        if isinstance(row, dict) and name in row:
+            return row[name]
+        current = row
+        try:
+            for part in name.split("."):
+                current = current[part] if isinstance(current, dict) else getattr(current, part)
+            return current
+        except (AttributeError, KeyError, TypeError):
+            continue
+    return None

@@ -101,3 +101,52 @@ def test_malformed_config_fails_with_stable_code(tmp_path):
     service = GoogleAdsAuthService(WorkspacePaths(tmp_path), config_path=config_path)
     with pytest.raises(GoogleAdsAuthError, match="INVALID_CREDENTIAL_CONFIG"):
         service.status()
+
+
+def test_verify_without_customer_id_picks_from_mcc_accounts(tmp_path):
+    config_path = tmp_path / "config/google-ads.yaml"
+    _write_config(config_path, refresh_token="refresh-secret")
+    calls = []
+
+    class GoogleAdsService:
+        def search_stream(self, *, customer_id, query):
+            calls.append((customer_id, query))
+            yield SimpleNamespace(
+                results=[
+                    {
+                        "customer.id": customer_id,
+                        "customer.descriptive_name": f"Account {customer_id}",
+                    }
+                ]
+            )
+
+    class CustomerService:
+        def list_accessible_customers(self):
+            return SimpleNamespace(resource_names=["customers/111", "customers/222"])
+
+    class Client:
+        def get_service(self, name):
+            return GoogleAdsService() if name == "GoogleAdsService" else CustomerService()
+
+    credential = SimpleNamespace(refresh_count=0, cache_hits=1)
+    provider = SimpleNamespace(
+        credential_provider=credential,
+        login_customer_id="1234567890",
+        get_client=lambda: Client(),
+    )
+    prompts = []
+    output = []
+    service = GoogleAdsAuthService(
+        WorkspacePaths(tmp_path),
+        config_path=config_path,
+        provider_factory=lambda *args, **kwargs: provider,
+    )
+    result = service.verify(
+        input_fn=lambda prompt: prompts.append(prompt) or "2",
+        output_fn=output.append,
+    )
+    assert result["customer_id"] == "222"
+    assert output[0] == "Available Google Ads accounts:"
+    assert "Account 111" in output[1]
+    assert prompts == ["Select account number: "]
+    assert calls[-1][0] == "222"

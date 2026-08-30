@@ -35,7 +35,16 @@ Ads to discover an account.
 
 ## Verify authentication
 
-Run one harmless authenticated Google Ads read:
+Run one harmless authenticated Google Ads read. Without `--customer-id`, Spire
+lists the accounts accessible from the configured MCC and opens an interactive
+picker:
+
+```text
+spire auth google-ads verify
+```
+
+Choose the account number shown by the picker. To verify a known account
+directly, provide its ID:
 
 ```text
 spire auth google-ads verify --customer-id 1234567890
