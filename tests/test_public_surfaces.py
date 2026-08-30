@@ -105,6 +105,9 @@ def test_mcp_handshake_tools_and_no_approval_tool():
     listed = server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {tool["name"] for tool in listed["result"]["tools"]}
     assert "change_budget" in names
+    assert "negative_keyword_candidates" in names
+    assert "change_negative_keyword" in names
+    assert "create_search_campaign" in names
     assert "runs_list" in names
     assert "approve_run" not in names
     assert "grant_authority" not in names
@@ -154,6 +157,8 @@ def test_mcp_schemas_have_explicit_scope_for_reads():
     schemas = {name: schema for name, _, schema in TOOLS}
     assert schemas["campaigns_get"]["required"] == ["customer_id", "campaign_id"]
     assert schemas["evidence_query"]["required"] == ["customer_id", "campaign_ids", "dataset"]
+    assert schemas["change_negative_keyword"]["required"] == ["customer_id", "campaign_id", "text", "match_type", "environment"]
+    assert schemas["create_search_campaign"]["required"] == ["customer_id", "request", "environment"]
 
 
 def test_public_api_clean_workspace_refresh_and_frozen_reads(fake_runtime):

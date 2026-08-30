@@ -2,6 +2,7 @@
 # @domain interfaces
 # @status stable
 # @adr [[0009-capability-projection]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @adr [[0015-cli-interaction-policy]]
 # @tested-by [[test_public_surfaces.py]]
 """Storage-independent public operations shared by CLI and MCP."""
@@ -141,6 +142,46 @@ class PublicApi:
             campaign_id,
             daily_budget,
             environment=environment,
+        )
+        return {**prepared, **self.run_approval_preview(prepared["run_id"])}
+
+    def negative_keyword_candidates(self, customer_id: str, campaign_id: str) -> dict[str, Any]:
+        customer_id = validate_customer_id(customer_id)
+        campaign_id = validate_google_ads_id(campaign_id, field="campaign_id")
+        return self.application.for_customer(customer_id).negative_candidates.candidates(customer_id, campaign_id)
+
+    def change_negative_keyword(
+        self,
+        customer_id: str,
+        campaign_id: str,
+        text: object,
+        match_type: object,
+        *,
+        ad_group_id: str | None = None,
+        environment: str = "production",
+    ) -> dict[str, Any]:
+        customer_id = validate_customer_id(customer_id)
+        campaign_id = validate_google_ads_id(campaign_id, field="campaign_id")
+        prepared = self.application.for_customer(customer_id).execution.prepare_add_negative_keyword(
+            customer_id,
+            campaign_id,
+            text,
+            match_type,
+            ad_group_id=ad_group_id,
+            environment=environment,
+        )
+        return {**prepared, **self.run_approval_preview(prepared["run_id"])}
+
+    def create_search_campaign(
+        self,
+        customer_id: str,
+        request: dict[str, Any],
+        *,
+        environment: str = "production",
+    ) -> dict[str, Any]:
+        customer_id = validate_customer_id(customer_id)
+        prepared = self.application.for_customer(customer_id).execution.prepare_create_search_campaign(
+            customer_id, request, environment=environment
         )
         return {**prepared, **self.run_approval_preview(prepared["run_id"])}
 

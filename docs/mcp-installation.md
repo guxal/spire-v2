@@ -56,8 +56,10 @@ Si el ejecutable no está en el `PATH`, usa el entorno virtual explícito:
 ## Herramientas y autoridad
 
 El servidor expone herramientas de estado de autenticación, cuentas,
-descubrimiento, refresh explícito, campañas, evidencia y runs. También puede
-preparar `UPDATE_BUDGET` hasta `WAITING_FOR_APPROVAL`.
+descubrimiento, refresh explícito, campañas, evidencia, candidatos negativos y
+runs. Puede preparar `UPDATE_BUDGET`, `ADD_NEGATIVE_KEYWORD` y
+`CREATE_SEARCH_CAMPAIGN` hasta `WAITING_FOR_APPROVAL`; las campañas Search se
+preparan siempre como `PAUSED`.
 
 Los datasets segmentados de Google Ads requieren un rango finito. En
 `account_refresh`, pasa `date_range` con `start` y `end` cuando necesites

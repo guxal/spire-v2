@@ -72,13 +72,20 @@ remain integer micros.
 `evidence datasets` lists logical datasets in the current snapshot.
 `evidence query` is a restricted, scoped query over those datasets. It returns
 logical evidence references, schema, freshness, and aggregation semantics.
+`negative_keywords` is a frozen inventory of campaign, ad-group, shared-list,
+and account-level negative keywords where the Google Ads account exposes each
+source. `change negative-candidates` deterministically flags objective
+search-term signals from that same frozen snapshot; it does not persist a
+workflow item.
 
 ### Execution
 
-`UPDATE_BUDGET` is currently the only production mutation. It is compiled from
-frozen truth, remotely validated with Google Ads `validate_only`, evaluated by
-HardPolicy, held for exact human approval, dispatched once, and semantically
-verified by provider read-back.
+The supported production mutations are `UPDATE_BUDGET`,
+`ADD_NEGATIVE_KEYWORD`, and `CREATE_SEARCH_CAMPAIGN`. Each compiles from
+frozen truth, is remotely validated with Google Ads `validate_only`, evaluated
+by HardPolicy, held for exact human approval, dispatched once, and
+semantically verified by provider read-back. Search campaigns are always
+created `PAUSED`.
 
 ### CLI
 
@@ -173,6 +180,65 @@ Spire currently has no internal LLM and no legacy `investigate` engine.
 It deliberately supplies evidence rather than recommendations from a hidden
 reasoning layer. See [Evidence aggregation semantics](docs/evidence-semantics.md).
 
+## Work with negative keywords
+
+Refresh first, inspect the frozen inventory with `evidence query`, then derive
+deterministic candidates. Candidate evidence is not an instruction to mutate:
+review its reason codes and metrics before preparing a change.
+
+```bash
+spire evidence query \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id> \
+  --dataset negative_keywords
+spire change negative-candidates \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id>
+spire change negative-keyword \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id> \
+  --text "<negative text>" \
+  --match-type EXACT \
+  --environment PRODUCTION
+```
+
+The final two lifecycle steps are the same exact human approval and resume
+commands shown for a budget change. An optional `--ad-group-id` creates an
+ad-group-level negative; otherwise the change is campaign-level.
+
+## Create a paused Search campaign
+
+Create a small typed JSON request. Geo and language criterion IDs are explicit
+targeting inputs; Spire resolves the provider resource names internally.
+
+```json
+{
+  "campaign_name": "Search · example service",
+  "daily_budget": "10",
+  "geo_target_ids": ["2170"],
+  "language_criterion_ids": ["1003"],
+  "bidding_strategy": "MAXIMIZE_CLICKS",
+  "ad_groups": [{
+    "name": "Core service",
+    "keywords": [{"text": "example service", "match_type": "PHRASE"}],
+    "headlines": ["Example service", "Local specialists", "Request a quote"],
+    "descriptions": ["A concise approved description.", "A second approved description."],
+    "final_url": "https://www.example.com/service"
+  }]
+}
+```
+
+```bash
+spire change search-campaign \
+  --customer-id <customer_id> \
+  --request-file search-campaign.json \
+  --environment PRODUCTION
+```
+
+Preparation stops at `WAITING_FOR_APPROVAL`. After a human approves the exact
+run, `runs resume` creates the campaign in `PAUSED` state and verifies its
+campaign, budget, targeting, ad groups, keywords, RSA, and final URL.
+
 ## Execute a budget change
 
 Read the current public budget, choose the exact target in account currency,
@@ -247,9 +313,11 @@ development workflow is documented in [Architecture](docs/architecture/README.md
 
 ## Current limitations
 
-- `UPDATE_BUDGET` is the only production mutation.
-- Spire has no internal LLM, recommendation engine, or active BusinessProfile
-  store.
+- There is no recommendation inbox or persistence, `OperatingMandate`,
+  `BusinessProfile`, autonomous optimization, bidding mutation, RSA replacement
+  mutation, sitelink mutation, internal LLM, or legacy investigate engine.
+- Search-campaign creation is intentionally narrow: it supports the typed
+  Search request documented above and creates campaigns paused only.
 - Google Ads segmented datasets can be partial or non-additive. Their response
   semantics identify the coverage and safe comparison baseline.
 - Google Ads may restrict Auction Insights participant identity or metrics; no

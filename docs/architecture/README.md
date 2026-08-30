@@ -78,6 +78,13 @@ Google Ads views may omit privacy-thresholded, zero-metric, non-keyword, or
 non-reportable data, and asset rows may overlap. Therefore their totals are
 not campaign totals unless their declared semantics say so.
 
+`negative_keywords` is a configuration inventory frozen during refresh. It
+combines campaign and ad-group criteria with shared-list and account-level
+negative keyword lists when the provider exposes them. The deterministic
+`NegativeKeywordCandidateService` reads only `search_terms`, `keyword_daily`,
+and that inventory from the same snapshot; it does not create a durable
+workflow record.
+
 ## Execution journey
 
 ```text
@@ -86,7 +93,9 @@ ChangeSpec → exact AccountSnapshot → CompiledOperation → validate_only
 → mutate once → semantic read-back → VERIFIED
 ```
 
-1. `PublicApi.change_budget` calls `ExecutionRunService.prepare_change_budget`.
+1. `PublicApi.change_budget`, `change_negative_keyword`, and
+   `create_search_campaign` call the corresponding preparation method on
+   `ExecutionRunService`.
 2. The service persists a `ChangeSpec`, loads the exact current
    `AccountSnapshot`, and calls `BudgetCompiler.compile` for one immutable
    `CompiledOperation`.
@@ -100,14 +109,17 @@ ChangeSpec → exact AccountSnapshot → CompiledOperation → validate_only
 6. `ExecutionRunService.execute_approved` persists `request_sent` before the
    Google Ads mutate call. Ambiguous post-send results enter reconciliation;
    they are never blindly retried.
-7. `SemanticReadBack` verifies the actual budget. Only an exact match moves
-   the `ExecutionRun` to `VERIFIED`.
+7. `SemanticReadBack` verifies the actual requested state. It verifies the
+   exact budget, negative keyword scope/text/match type, or the created paused
+   Search campaign with budget, targeting, ad groups, keywords, RSA, and final
+   URL. Only a match moves the `ExecutionRun` to `VERIFIED`.
 
 ## Authority boundary
 
 MCP can check auth, list accounts, refresh, discover and read campaigns, query
-evidence, inspect runs, prepare an `UPDATE_BUDGET` run, and resume a run that
-has already been approved. It has no approve tool.
+evidence, derive negative-keyword candidates, prepare all supported mutation
+runs, inspect runs, and resume a run that has already been approved. It has no
+approve tool.
 
 The CLI is the trusted human-facing surface for one-off approval. An approval
 is an append-only artifact bound to the exact run fingerprint, not an agent

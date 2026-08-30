@@ -3,6 +3,7 @@
 # @status stable
 # @adr [[0009-capability-projection]]
 # @adr [[0012-exact-human-approval]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_public_surfaces.py]]
 """Minimal JSON-RPC MCP stdio adapter over the public application API."""
 
@@ -30,6 +31,9 @@ TOOLS = (
     ("evidence_query", "Query safe frozen evidence.", {"type": "object", "required": ["customer_id", "campaign_ids", "dataset"], "properties": {"customer_id": {"type": "string"}, "campaign_ids": {"type": "array", "items": {"type": "string"}}, "dataset": {"type": "string"}, "date_range": {"type": "object"}, "dimensions": {"type": "array", "items": {"type": "string"}}, "metrics": {"type": "array", "items": {"type": "string"}}, "filters": {"type": "object"}, "limit": {"type": "integer"}, "order_by": {"type": ["string", "array"]}}}),
     ("evidence_datasets", "List logical datasets in the current snapshot.", {"type": "object", "required": ["customer_id", "campaign_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}}}),
     ("change_budget", "Prepare an UPDATE_BUDGET run; production stops for human approval.", {"type": "object", "required": ["customer_id", "campaign_id", "daily_budget", "environment"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}, "daily_budget": {}, "environment": {"type": "string"}}}),
+    ("negative_keyword_candidates", "Derive read-only negative-keyword candidates from frozen evidence.", {"type": "object", "required": ["customer_id", "campaign_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}}}),
+    ("change_negative_keyword", "Prepare an ADD_NEGATIVE_KEYWORD run; MCP cannot approve it.", {"type": "object", "required": ["customer_id", "campaign_id", "text", "match_type", "environment"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}, "ad_group_id": {"type": "string"}, "text": {"type": "string"}, "match_type": {"type": "string", "enum": ["EXACT", "PHRASE", "BROAD"]}, "environment": {"type": "string"}}}),
+    ("create_search_campaign", "Prepare a paused CREATE_SEARCH_CAMPAIGN run; MCP cannot approve it.", {"type": "object", "required": ["customer_id", "request", "environment"], "properties": {"customer_id": {"type": "string"}, "request": {"type": "object"}, "environment": {"type": "string"}}}),
     ("runs_list", "Discover execution runs through safe public projections.", {"type": "object", "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}, "status": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}, "latest": {"type": "boolean"}, "order_by": {"type": "string", "enum": ["created_at", "updated_at"]}}}),
     ("run_get", "Inspect an execution run.", {"type": "object", "required": ["run_id"], "properties": {"run_id": {"type": "string"}}}),
     ("run_resume", "Resume an already human-approved run.", {"type": "object", "required": ["run_id"], "properties": {"run_id": {"type": "string"}}}),
@@ -88,6 +92,12 @@ class McpServer:
             return self.api.evidence_datasets(args["customer_id"], args["campaign_id"])
         if name == "change_budget":
             return self.api.change_budget(args["customer_id"], args["campaign_id"], args["daily_budget"], environment=args["environment"])
+        if name == "negative_keyword_candidates":
+            return self.api.negative_keyword_candidates(args["customer_id"], args["campaign_id"])
+        if name == "change_negative_keyword":
+            return self.api.change_negative_keyword(args["customer_id"], args["campaign_id"], args["text"], args["match_type"], ad_group_id=args.get("ad_group_id"), environment=args["environment"])
+        if name == "create_search_campaign":
+            return self.api.create_search_campaign(args["customer_id"], args["request"], environment=args["environment"])
         if name == "runs_list":
             return self.api.runs_list(
                 customer_id=args.get("customer_id"),

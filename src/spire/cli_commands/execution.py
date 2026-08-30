@@ -3,12 +3,14 @@
 # @status stable
 # @adr [[0012-exact-human-approval]]
 # @adr [[0015-cli-interaction-policy]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_cli_runs.py]]
 """Mutation preparation and trusted approval command adapters."""
 
 from __future__ import annotations
 
 import getpass
+import json
 from decimal import Decimal
 from typing import Any
 
@@ -24,6 +26,37 @@ def change_budget(ctx: CommandContext, args) -> int:
         args.daily_budget,
         environment=args.environment,
     )
+    ctx.emit(prepared, human=human_change)
+    return 0
+
+
+def negative_candidates(ctx: CommandContext, args) -> int:
+    customer_id = require_customer(ctx, args.customer_id)
+    campaign_id = require_campaign(ctx, customer_id, args.campaign_id)
+    ctx.emit(ctx.api.negative_keyword_candidates(customer_id, campaign_id))
+    return 0
+
+
+def change_negative_keyword(ctx: CommandContext, args) -> int:
+    customer_id = require_customer(ctx, args.customer_id)
+    campaign_id = require_campaign(ctx, customer_id, args.campaign_id)
+    prepared = ctx.api.change_negative_keyword(
+        customer_id,
+        campaign_id,
+        args.text,
+        args.match_type,
+        ad_group_id=args.ad_group_id,
+        environment=args.environment,
+    )
+    ctx.emit(prepared, human=human_change)
+    return 0
+
+
+def create_search_campaign(ctx: CommandContext, args) -> int:
+    customer_id = require_customer(ctx, args.customer_id)
+    with open(args.request_file, encoding="utf-8") as source:
+        request = json.load(source)
+    prepared = ctx.api.create_search_campaign(customer_id, request, environment=args.environment)
     ctx.emit(prepared, human=human_change)
     return 0
 
