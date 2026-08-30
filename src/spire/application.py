@@ -28,6 +28,7 @@ from spire.google_ads import (
     ScopedRefreshService,
 )
 from spire.truth import AccountSnapshotService, EvidenceQueryService
+from spire.truth.negative_candidates import NegativeKeywordCandidateService
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +38,7 @@ class CustomerServices:
     refresh: ScopedRefreshService
     campaigns: CampaignReadService
     evidence: EvidenceQueryService
+    negative_candidates: NegativeKeywordCandidateService
     execution: ExecutionRunService
 
 
@@ -63,6 +65,7 @@ class Application:
             refresh=ScopedRefreshService(provider, self.workspace),
             campaigns=CampaignReadService(discovery, snapshots),
             evidence=EvidenceQueryService(self.workspace, snapshots=snapshots),
+            negative_candidates=NegativeKeywordCandidateService(self.workspace, snapshots=snapshots),
             execution=ExecutionRunService(
                 self.workspace,
                 snapshots=snapshots,
