@@ -12,3 +12,6 @@
 
 Authentication details, credential locations, cache behavior, and
 troubleshooting are documented in [Google Ads Authentication](docs/google-ads-auth.md).
+
+MCP is not yet distributed as a runnable server. See [MCP installation status](docs/mcp-installation.md)
+before configuring an external MCP host.
