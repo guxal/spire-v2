@@ -1,3 +1,9 @@
+# @file MCP stdio adapter over the public application API.
+# @domain interfaces
+# @status stable
+# @adr [[0009-capability-projection]]
+# @adr [[0012-exact-human-approval]]
+# @tested-by [[test_public_surfaces.py]]
 """Minimal JSON-RPC MCP stdio adapter over the public application API."""
 
 from __future__ import annotations

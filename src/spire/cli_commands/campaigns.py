@@ -1,3 +1,6 @@
+# @file Campaign CLI adapters.
+# @domain interfaces
+# @status stable
 """Campaign command adapters."""
 
 from .common import CommandContext, human_campaign, require_campaign, require_customer

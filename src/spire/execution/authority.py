@@ -1,3 +1,8 @@
+# @file Exact human approval authority.
+# @domain execution
+# @status stable
+# @adr [[0012-exact-human-approval]]
+# @tested-by [[test_execution_authority.py]]
 """Exact, single-use authority for one prepared execution run."""
 
 from __future__ import annotations

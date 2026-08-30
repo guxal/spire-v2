@@ -1,3 +1,8 @@
+# @file Account-scoped execution artifact store.
+# @domain execution
+# @status stable
+# @adr [[0011-canonical-execution-lifecycle]]
+# @tested-by [[test_execution_service.py]]
 """Execution artifact persistence confined to the account execution root."""
 
 from __future__ import annotations

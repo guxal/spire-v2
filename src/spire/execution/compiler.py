@@ -1,3 +1,9 @@
+# @file Deterministic budget-change compiler.
+# @domain execution
+# @status stable
+# @adr [[0011-canonical-execution-lifecycle]]
+# @adr [[0016-public-currency-units-and-internal-micros]]
+# @tested-by [[test_budget_compiler.py]]
 """Deterministic compilation of business budget changes from frozen truth."""
 
 from __future__ import annotations

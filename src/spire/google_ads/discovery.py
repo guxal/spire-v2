@@ -1,3 +1,9 @@
+# @file Live account and campaign discovery.
+# @domain google-ads
+# @status stable
+# @adr [[0001-deterministic-frozen-truth]]
+# @adr [[0009-capability-projection]]
+# @tested-by [[test_truth_pipeline.py]]
 """Small live account/campaign discovery service and local catalog writer."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# @file Spire package boundary.
+# @domain application
+# @status stable
 """Spire application package."""
 """Spire v2 clean-room runtime."""
 

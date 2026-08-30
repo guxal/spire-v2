@@ -1,3 +1,6 @@
+# @file Shared CLI presentation helpers.
+# @domain interfaces
+# @status stable
 """Shared presentation and interactive selection helpers."""
 
 from __future__ import annotations

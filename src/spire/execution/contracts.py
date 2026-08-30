@@ -1,3 +1,9 @@
+# @file Immutable execution lifecycle contracts.
+# @domain execution
+# @status stable
+# @adr [[0011-canonical-execution-lifecycle]]
+# @adr [[0012-exact-human-approval]]
+# @tested-by [[test_execution_contracts.py]]
 """Small immutable contracts for the canonical execution lifecycle."""
 
 from __future__ import annotations

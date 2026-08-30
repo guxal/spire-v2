@@ -1,3 +1,8 @@
+# @file Google Ads authentication bootstrap and verification.
+# @domain google-ads
+# @status stable
+# @adr [[0014-google-ads-authentication-bootstrap]]
+# @tested-by [[test_auth_service.py]]
 """Explicit Google Ads authentication bootstrap and verification."""
 
 from __future__ import annotations

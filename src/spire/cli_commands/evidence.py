@@ -1,3 +1,6 @@
+# @file Evidence CLI adapters.
+# @domain interfaces
+# @status stable
 """Frozen evidence command adapters."""
 
 from .common import CommandContext, require_campaign, require_customer

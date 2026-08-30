@@ -1,3 +1,6 @@
+# @file Frozen truth service exports.
+# @domain truth
+# @status stable
 """Frozen truth contracts and services."""
 
 from .contracts import AccountSnapshot, DatasetState, ExtractionManifest, SnapshotSource

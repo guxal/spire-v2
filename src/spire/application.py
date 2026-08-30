@@ -1,3 +1,9 @@
+# @file Application composition root.
+# @domain application
+# @status stable
+# @adr [[0007-google-ads-provider-ownership]]
+# @adr [[0009-capability-projection]]
+# @tested-by [[test_public_surfaces.py]]
 """Composition root for public Spire surfaces."""
 
 from __future__ import annotations

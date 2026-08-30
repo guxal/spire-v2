@@ -1,3 +1,8 @@
+# @file Logical resolver for finalized truth datasets.
+# @domain truth
+# @status stable
+# @adr [[0005-dataset-resolver-boundary]]
+# @tested-by [[test_truth_pipeline.py]]
 """Logical access to finalized truth datasets; physical layout stays private."""
 
 from __future__ import annotations

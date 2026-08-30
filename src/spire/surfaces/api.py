@@ -1,3 +1,9 @@
+# @file Shared storage-independent public API.
+# @domain interfaces
+# @status stable
+# @adr [[0009-capability-projection]]
+# @adr [[0015-cli-interaction-policy]]
+# @tested-by [[test_public_surfaces.py]]
 """Storage-independent public operations shared by CLI and MCP."""
 
 from __future__ import annotations

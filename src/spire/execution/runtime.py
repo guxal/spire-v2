@@ -1,3 +1,8 @@
+# @file Google Ads execution transport and semantic read-back.
+# @domain execution
+# @status stable
+# @adr [[0013-provider-boundary-and-semantic-verification]]
+# @tested-by [[test_execution_runtime.py]]
 """Google Ads transport and semantic read-back adapter."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# @file Execution lifecycle exports.
+# @domain execution
+# @status stable
 """Canonical, account-scoped mutation lifecycle."""
 
 from .authority import AuthorityService

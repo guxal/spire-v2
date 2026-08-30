@@ -1,3 +1,9 @@
+# @file Frozen campaign read service.
+# @domain google-ads
+# @status stable
+# @adr [[0009-capability-projection]]
+# @adr [[0016-public-currency-units-and-internal-micros]]
+# @tested-by [[test_truth_pipeline.py]]
 """Canonical campaign read surface."""
 
 from __future__ import annotations

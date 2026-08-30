@@ -1,3 +1,9 @@
+# @file Safe execution-run query projections.
+# @domain execution
+# @status stable
+# @adr [[0011-canonical-execution-lifecycle]]
+# @adr [[0016-public-currency-units-and-internal-micros]]
+# @tested-by [[test_execution_query.py]]
 """Canonical read-only discovery and safe projection of execution runs."""
 
 from __future__ import annotations

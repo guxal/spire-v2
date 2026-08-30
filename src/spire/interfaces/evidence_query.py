@@ -1,3 +1,8 @@
+# @file Storage-independent evidence query contracts.
+# @domain interfaces
+# @status stable
+# @adr [[0010-safe-evidence-query]]
+# @tested-by [[test_evidence_query.py]]
 """Public, storage-independent evidence query contracts."""
 
 from __future__ import annotations

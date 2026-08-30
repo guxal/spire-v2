@@ -1,3 +1,8 @@
+# @file OAuth credentials and account-scoped token cache.
+# @domain google-ads
+# @status stable
+# @adr [[0014-google-ads-authentication-bootstrap]]
+# @tested-by [[test_credentials.py]]
 """OAuth credential ownership and account-scoped access-token caching."""
 
 from __future__ import annotations

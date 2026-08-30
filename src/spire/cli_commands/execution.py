@@ -1,3 +1,9 @@
+# @file Execution CLI adapters.
+# @domain interfaces
+# @status stable
+# @adr [[0012-exact-human-approval]]
+# @adr [[0015-cli-interaction-policy]]
+# @tested-by [[test_cli_runs.py]]
 """Mutation preparation and trusted approval command adapters."""
 
 from __future__ import annotations

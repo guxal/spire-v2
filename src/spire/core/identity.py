@@ -1,3 +1,9 @@
+# @file Core identity, path-jail, and hashing primitives.
+# @domain core
+# @status stable
+# @adr [[0004-typed-immutable-truth]]
+# @adr [[0006-account-scoped-workspace]]
+# @tested-by [[test_workspace.py]]
 """Fail-closed identity, path-jail, and canonical hashing primitives."""
 
 from __future__ import annotations

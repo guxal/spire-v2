@@ -1,3 +1,9 @@
+# @file Scoped refresh and atomic frozen-truth publication.
+# @domain google-ads
+# @status stable
+# @adr [[0001-deterministic-frozen-truth]]
+# @adr [[0017-finite-resolved-refresh-scope]]
+# @tested-by [[test_truth_pipeline.py]]
 """Explicit scoped refresh and atomic publication of minimal truth."""
 
 from __future__ import annotations

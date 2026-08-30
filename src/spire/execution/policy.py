@@ -1,3 +1,8 @@
+# @file Hard production execution policy.
+# @domain execution
+# @status stable
+# @adr [[0011-canonical-execution-lifecycle]]
+# @tested-by [[test_execution_policy.py]]
 """Pure hard safety policy for production execution."""
 
 from __future__ import annotations

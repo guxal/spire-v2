@@ -1,3 +1,6 @@
+# @file Workspace CLI adapter.
+# @domain interfaces
+# @status stable
 """Read-only workspace observability command."""
 
 from __future__ import annotations

@@ -1,3 +1,8 @@
+# @file Safe evidence querying over frozen datasets.
+# @domain evidence
+# @status stable
+# @adr [[0010-safe-evidence-query]]
+# @tested-by [[test_evidence_query.py]]
 """Canonical safe evidence querying over frozen datasets."""
 
 from __future__ import annotations

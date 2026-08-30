@@ -1,3 +1,6 @@
+# @file Authentication CLI adapters.
+# @domain interfaces
+# @status stable
 """Authentication command adapters."""
 
 from __future__ import annotations

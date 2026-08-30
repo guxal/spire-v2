@@ -1,3 +1,6 @@
+# @file Account CLI adapters.
+# @domain interfaces
+# @status stable
 """Account discovery and refresh command adapters."""
 
 from .common import CommandContext, human_refresh, require_customer

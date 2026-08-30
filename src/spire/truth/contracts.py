@@ -1,3 +1,8 @@
+# @file Immutable finalized-truth contracts.
+# @domain truth
+# @status stable
+# @adr [[0004-typed-immutable-truth]]
+# @tested-by [[test_truth_pipeline.py]]
 """Immutable contracts for finalized Google Ads truth."""
 
 from __future__ import annotations

@@ -1,3 +1,8 @@
+# @file Execution authority surface contracts.
+# @domain interfaces
+# @status stable
+# @adr [[0012-exact-human-approval]]
+# @tested-by [[test_execution_authority.py]]
 """Thin external surfaces around the canonical execution service."""
 
 from __future__ import annotations

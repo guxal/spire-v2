@@ -1,3 +1,6 @@
+# @file Core error contracts.
+# @domain core
+# @status stable
 """Small, dependency-free domain errors."""
 
 

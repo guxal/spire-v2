@@ -1,3 +1,9 @@
+# @file Immutable AccountSnapshot construction.
+# @domain truth
+# @status stable
+# @adr [[0001-deterministic-frozen-truth]]
+# @adr [[0004-typed-immutable-truth]]
+# @tested-by [[test_truth_pipeline.py]]
 """Build current immutable snapshots from finalized local truth only."""
 
 from __future__ import annotations

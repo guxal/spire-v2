@@ -1,3 +1,8 @@
+# @file Allowlisted evidence extraction queries and row normalization.
+# @domain evidence
+# @status stable
+# @adr [[0010-safe-evidence-query]]
+# @tested-by [[test_evidence_query.py]]
 """Allowlisted extraction queries and canonical row normalization."""
 
 from __future__ import annotations

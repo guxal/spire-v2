@@ -1,3 +1,9 @@
+# @file Lazy Google Ads client provider.
+# @domain google-ads
+# @status stable
+# @adr [[0007-google-ads-provider-ownership]]
+# @adr [[0014-google-ads-authentication-bootstrap]]
+# @tested-by [[test_provider.py]]
 """The sole owner of Google Ads client construction."""
 
 from __future__ import annotations

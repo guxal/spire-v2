@@ -1,3 +1,6 @@
+# @file Public interface contract exports.
+# @domain interfaces
+# @status stable
 """Public interfaces and ports."""
 """Public interface package reserved for domain-neutral contracts."""
 

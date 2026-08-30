@@ -1,3 +1,6 @@
+# @file Google Ads service exports.
+# @domain google-ads
+# @status stable
 """Google Ads provider, discovery, and explicit refresh services."""
 
 from .auth import run_installed_app_oauth, write_google_ads_config

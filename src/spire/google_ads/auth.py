@@ -1,3 +1,8 @@
+# @file Installed-app OAuth helpers.
+# @domain google-ads
+# @status stable
+# @adr [[0014-google-ads-authentication-bootstrap]]
+# @tested-by [[test_auth_service.py]]
 """Installed-app OAuth helpers preserved behind the v2 Google Ads boundary."""
 
 from __future__ import annotations

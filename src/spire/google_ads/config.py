@@ -1,3 +1,8 @@
+# @file Normalized Google Ads configuration.
+# @domain google-ads
+# @status stable
+# @adr [[0007-google-ads-provider-ownership]]
+# @tested-by [[test_provider.py]]
 """Normalized Google Ads configuration."""
 
 from __future__ import annotations

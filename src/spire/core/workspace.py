@@ -1,3 +1,8 @@
+# @file Canonical customer-scoped runtime workspace.
+# @domain core
+# @status stable
+# @adr [[0006-account-scoped-workspace]]
+# @tested-by [[test_workspace.py]]
 """Canonical account-scoped runtime roots."""
 
 from __future__ import annotations

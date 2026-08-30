@@ -1,3 +1,6 @@
+# @file Core contract exports.
+# @domain core
+# @status stable
 """Core identity and workspace contracts."""
 
 from .errors import (

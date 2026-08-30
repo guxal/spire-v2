@@ -1,3 +1,8 @@
+# @file Public CLI entrypoint.
+# @domain interfaces
+# @status stable
+# @adr [[0015-cli-interaction-policy]]
+# @tested-by [[test_public_surfaces.py]]
 """Composition-only entrypoint for the public Spire CLI."""
 
 from __future__ import annotations
