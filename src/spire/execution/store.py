@@ -28,6 +28,18 @@ class ExecutionStore:
         self.customer_id = validate_customer_id(customer_id)
         self.root = workspace.execution(self.customer_id)
 
+    @classmethod
+    def find(cls, workspace, run_id: str) -> tuple[ExecutionStore, ExecutionRun]:
+        """Locate a run through the account workspace boundary."""
+
+        for customer_id in workspace.customer_ids():
+            store = cls(workspace, customer_id)
+            try:
+                return store, store.load_run(run_id)
+            except ArtifactNotFoundError:
+                continue
+        raise ArtifactNotFoundError("EXECUTION_RUN_NOT_FOUND")
+
     def save_spec(self, spec: ChangeSpec) -> None:
         self._write("change_specs", spec.spec_id, spec.to_dict())
 

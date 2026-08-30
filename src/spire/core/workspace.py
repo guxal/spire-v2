@@ -43,6 +43,20 @@ class WorkspacePaths:
     def cache(self, customer_id: str) -> Path:
         return self._category(customer_id, "cache")
 
+    def customer_ids(self) -> tuple[str, ...]:
+        """Return existing customer workspaces without deriving paths elsewhere."""
+
+        root = self.project_root / ".spire" / "customers"
+        if not root.is_dir():
+            return ()
+        return tuple(
+            sorted(
+                path.name
+                for path in root.iterdir()
+                if path.is_dir() and path.name.isascii() and path.name.isdigit()
+            )
+        )
+
     def _category(self, customer_id: str, category: str) -> Path:
         return safe_child(self.customer_root(customer_id), category, field="workspace_category")
 
