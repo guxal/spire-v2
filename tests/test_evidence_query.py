@@ -36,7 +36,7 @@ class _EvidenceService:
             "campaign_ad_groups": [{"campaign_id": "101", "ad_group_id": "11", "ad_group_name": "Core", "status": "ENABLED", "type": "SEARCH_STANDARD"}],
             "campaign_ads": [{"campaign_id": "101", "ad_group_id": "11", "ad_id": "31", "status": "ENABLED", "type": "RESPONSIVE_SEARCH_AD", "headlines": ["Buy shoes"], "descriptions": ["Comfortable shoes"], "final_urls": []}],
             "campaign_assets": [{"campaign_id": "101", "asset_id": "41", "field_type": "SITELINK", "status": "ENABLED", "type": "SITELINK", "name": "Sizes", "link_text": "See sizes"}],
-            "geo_daily": [{"campaign_id": "101", "date": "2026-08-01", "country_criterion_id": "100", "location_type": "LOCATION_OF_PRESENCE", "geo_region": "Bogota", "impressions": 50, "clicks": 5, "cost_micros": 500_000, "conversions": 1}],
+            "geo_daily": [{"campaign_id": "101", "date": "2026-08-01", "country_criterion_id": "100", "location_type": "LOCATION_OF_PRESENCE", "geo_city": "geoTargetConstants/200", "geo_region": "geoTargetConstants/300", "impressions": 50, "clicks": 5, "cost_micros": 500_000, "conversions": 1}],
             "schedule_day": [{"campaign_id": "101", "day_of_week": "MONDAY", "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
             "schedule_hour": [{"campaign_id": "101", "hour": 9, "impressions": 100, "clicks": 10, "cost_micros": 1_000_000, "conversions": 2}],
             "auction_insights": [{"campaign_id": "101", "date": "2026-08-01", "search_impression_share": 0.5, "search_top_impression_share": 0.4}],
@@ -49,6 +49,15 @@ class _EvidenceService:
             return
         if "metrics.impressions" not in query and "FROM campaign WHERE" in query:
             yield _Batch(self.campaign_rows)
+            return
+        if "FROM geo_target_constant " in query:
+            yield _Batch(
+                [
+                    {"geo_target_constant.id": "100", "geo_target_constant.name": "Colombia", "geo_target_constant.canonical_name": "Colombia", "geo_target_constant.country_code": "CO", "geo_target_constant.target_type": "Country"},
+                    {"geo_target_constant.id": "200", "geo_target_constant.name": "Bogota", "geo_target_constant.canonical_name": "Bogota, Bogota D.C., Colombia", "geo_target_constant.country_code": "CO", "geo_target_constant.target_type": "City"},
+                    {"geo_target_constant.id": "300", "geo_target_constant.name": "Bogota D.C.", "geo_target_constant.canonical_name": "Bogota D.C., Colombia", "geo_target_constant.country_code": "CO", "geo_target_constant.target_type": "Region"},
+                ]
+            )
             return
         for dataset, rows in self.rows.items():
             if f"FROM {self._view(dataset)} " in query:
@@ -142,12 +151,43 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     assert keyword["aggregates"][0]["keyword_text"] == "shoes"
     assert keyword["aggregates"][0]["cpa_micros"] == 400_000.0
 
+    geo = service.query(
+        EvidenceQueryRequest(
+            "1234567890",
+            ("101",),
+            "geo_daily",
+            dimensions=(
+                "country",
+                "region",
+                "city",
+                "location_name",
+                "country_criterion_id",
+                "region_criterion_id",
+                "city_criterion_id",
+            ),
+            metrics=("impressions",),
+        )
+    )
+    assert geo["aggregates"] == [
+        {
+            "country": "Colombia",
+            "region": "Bogota D.C.",
+            "city": "Bogota",
+            "location_name": "Bogota",
+            "country_criterion_id": "100",
+            "region_criterion_id": "300",
+            "city_criterion_id": "200",
+            "impressions": 50,
+        }
+    ]
+    assert "geoTargetConstants/" not in json.dumps(geo)
+
     for dataset in ("campaign_ad_groups", "campaign_ads", "campaign_assets", "geo_daily", "schedule_day", "schedule_hour", "auction_insights"):
         result = service.query(EvidenceQueryRequest("1234567890", ("101",), dataset))
         assert result["schema"]["dataset"] == dataset
         assert result["scope"]["extraction_id"].startswith("extract_")
 
-    assert len(transport.calls) == 12
+    assert len(transport.calls) == 13
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
 

@@ -104,11 +104,29 @@ def normalize_evidence_row(dataset: str, row: Any, customer_id: str) -> dict[str
         )
         return result
     if dataset == "geo_daily":
+        country_criterion_id = _criterion_id(
+            _value(row, "geographic_view.country_criterion_id", "country_criterion_id")
+        )
+        city_criterion_id = _criterion_id(
+            _value(row, "segments.geo_target_city", "city_criterion_id", "geo_city")
+        )
+        region_criterion_id = _criterion_id(
+            _value(row, "segments.geo_target_region", "region_criterion_id", "geo_region")
+        )
         result.update(
-            country_criterion_id=_string(_value(row, "geographic_view.country_criterion_id", "country_criterion_id")),
+            country=None,
+            country_code=None,
+            region=None,
+            city=None,
+            location_name=None,
+            location_canonical_name=None,
+            location_target_type=None,
+            country_criterion_id=country_criterion_id,
+            region_criterion_id=region_criterion_id,
+            city_criterion_id=city_criterion_id,
             location_type=_enum(_value(row, "geographic_view.location_type", "location_type")),
-            geo_city=_string(_value(row, "segments.geo_target_city", "geo_city")),
-            geo_region=_string(_value(row, "segments.geo_target_region", "geo_region")),
+            geo_city=None,
+            geo_region=None,
         )
         return _metrics(result, row)
     if dataset == "schedule_day":
@@ -180,3 +198,91 @@ def _strings(value: Any) -> list[str]:
     if isinstance(value, (str, bytes)):
         return [str(value)]
     return [str(item) for item in value]
+
+
+def geo_target_query(rows: list[Mapping[str, Any]]) -> str | None:
+    """Build one deterministic refresh-time lookup for reported geo identities."""
+
+    criterion_ids = {
+        criterion_id
+        for row in rows
+        for field in (
+            "country_criterion_id",
+            "region_criterion_id",
+            "city_criterion_id",
+        )
+        if (criterion_id := _criterion_id(row.get(field))) is not None
+    }
+    if not criterion_ids:
+        return None
+    resources = ", ".join(
+        f"'geoTargetConstants/{criterion_id}'"
+        for criterion_id in sorted(criterion_ids, key=lambda value: (len(value), value))
+    )
+    return (
+        "SELECT geo_target_constant.resource_name, geo_target_constant.id, "
+        "geo_target_constant.name, geo_target_constant.canonical_name, "
+        "geo_target_constant.country_code, geo_target_constant.target_type "
+        "FROM geo_target_constant "
+        f"WHERE geo_target_constant.resource_name IN ({resources}) "
+        "ORDER BY geo_target_constant.id"
+    )
+
+
+def normalize_geo_target_row(row: Any) -> dict[str, Any]:
+    criterion_id = _criterion_id(
+        _value(row, "geo_target_constant.id", "id")
+        or _value(row, "geo_target_constant.resource_name", "resource_name")
+    )
+    return {
+        "criterion_id": criterion_id,
+        "name": _string(_value(row, "geo_target_constant.name", "name")),
+        "canonical_name": _string(
+            _value(row, "geo_target_constant.canonical_name", "canonical_name")
+        ),
+        "country_code": _string(
+            _value(row, "geo_target_constant.country_code", "country_code")
+        ),
+        "target_type": _string(
+            _value(row, "geo_target_constant.target_type", "target_type")
+        ),
+    }
+
+
+def enrich_geo_rows(
+    rows: list[dict[str, Any]], geo_targets: list[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Attach readable frozen location names while retaining criterion IDs."""
+
+    targets = {
+        str(target["criterion_id"]): target
+        for target in geo_targets
+        if target.get("criterion_id") is not None
+    }
+    enriched: list[dict[str, Any]] = []
+    for source in rows:
+        row = dict(source)
+        country = targets.get(str(row.get("country_criterion_id")))
+        region = targets.get(str(row.get("region_criterion_id")))
+        city = targets.get(str(row.get("city_criterion_id")))
+        location = city or region or country
+        row.update(
+            country=country.get("name") if country else None,
+            country_code=(location or country or {}).get("country_code"),
+            region=region.get("name") if region else None,
+            city=city.get("name") if city else None,
+            location_name=location.get("name") if location else None,
+            location_canonical_name=(location or {}).get("canonical_name"),
+            location_target_type=(location or {}).get("target_type"),
+            geo_city=city.get("name") if city else None,
+            geo_region=region.get("name") if region else None,
+        )
+        enriched.append(row)
+    return enriched
+
+
+def _criterion_id(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    token = str(value).rsplit("/", maxsplit=1)[-1]
+    return token if token.isdigit() else None

@@ -19,7 +19,14 @@ from spire.interfaces import DateRange
 from spire.truth import DatasetState, ExtractionManifest, SnapshotSource
 
 from .discovery import normalize_campaign, query_rows
-from .evidence_datasets import EVIDENCE_DATASETS, evidence_query, normalize_evidence_row
+from .evidence_datasets import (
+    EVIDENCE_DATASETS,
+    enrich_geo_rows,
+    evidence_query,
+    geo_target_query,
+    normalize_evidence_row,
+    normalize_geo_target_row,
+)
 from .provider import GoogleAdsClientProvider
 
 
@@ -116,6 +123,16 @@ class ScopedRefreshService:
                     normalize_evidence_row(dataset, row, spec.customer_id)
                     for row in query_rows(self.provider.get_client(), spec.customer_id, query)
                 ]
+                if dataset == "geo_daily" and (metadata_query := geo_target_query(rows)):
+                    geo_targets = [
+                        normalize_geo_target_row(row)
+                        for row in query_rows(
+                            self.provider.get_client(),
+                            spec.customer_id,
+                            metadata_query,
+                        )
+                    ]
+                    rows = enrich_geo_rows(rows, geo_targets)
             except Exception as exc:  # noqa: BLE001 - failed optional datasets stay explicit
                 datasets[dataset] = {
                     "state": DatasetState.FAILED.value,
