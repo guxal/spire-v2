@@ -249,7 +249,7 @@ def _search_campaign_operations(client: Any, operation: CompiledOperation) -> li
     if payload["bidding_strategy"] == "MAXIMIZE_CONVERSIONS":
         create.maximize_conversions = {}
     else:
-        create.maximize_clicks = {}
+        create.target_spend = {}
     result.append(campaign)
 
     for target_id in payload["geo_target_ids"]:
