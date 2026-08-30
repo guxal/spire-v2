@@ -146,6 +146,8 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     assert response["freshness"]["status"] == "FRESH"
     assert response["evidence_ref"].startswith("extract_")
     assert all("path" not in key for key in response)
+    assert response["semantics"]["coverage"] == "canonical_campaign_performance"
+    assert response["semantics"]["comparison_baseline"] == "campaign_daily"
 
     totals = service.query(
         EvidenceQueryRequest(
@@ -168,12 +170,15 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     )
     assert search_terms["aggregates"][0]["search_term"] == "blue shoes"
     assert search_terms["aggregates"][1]["conversions"] == 2
+    assert "privacy and low-volume" in search_terms["semantics"]["limitations"][0]
+    assert "totals can be lower than campaign_daily" in search_terms["limitations"][0]
 
     keyword = service.query(
         EvidenceQueryRequest("1234567890", ("101",), "keyword_daily", DateRange("2026-08-01", "2026-08-02"), ("keyword_text",), ("impressions", "clicks", "cost_micros", "conversions", "cpa_micros"))
     )
     assert keyword["aggregates"][0]["keyword_text"] == "shoes"
     assert keyword["aggregates"][0]["cpa_micros"] == 400_000.0
+    assert "Non-keyword targeting" in keyword["semantics"]["limitations"][0]
 
     geo = service.query(
         EvidenceQueryRequest(
@@ -205,6 +210,7 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
         }
     ]
     assert "geoTargetConstants/" not in json.dumps(geo)
+    assert "totals can differ from campaign_daily" in geo["semantics"]["limitations"][0]
 
     auction = service.query(
         EvidenceQueryRequest(
@@ -250,6 +256,7 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
             "search_budget_lost_impression_share": 0.2,
         }
     ]
+    assert "Filter by row_type" in auction["semantics"]["aggregation_semantics"]
 
     ad_performance = service.query(
         EvidenceQueryRequest(

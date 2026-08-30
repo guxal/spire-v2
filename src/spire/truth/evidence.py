@@ -43,7 +43,7 @@ class EvidenceQueryService:
         request = _request(request)
         schema = _validate_request(request)
         snapshot = self.snapshots.current(request.customer_id, campaign_ids=request.campaign_ids)
-        limitations: list[str] = []
+        limitations = list(schema.limitations)
         if request.date_range is not None:
             declared_range = snapshot.scope.get("date_range")
             if declared_range is None:
@@ -325,5 +325,14 @@ def _response(
         },
         "freshness": dict(snapshot.freshness),
         "evidence_ref": evidence_ref,
+        "semantics": {
+            "coverage": schema.coverage,
+            "attribution_scope": schema.attribution_scope,
+            "aggregation_semantics": schema.aggregation_semantics,
+            "limitations": list(schema.limitations),
+            "comparison_baseline": "campaign_daily"
+            if request.dataset != "campaigns"
+            else None,
+        },
         "limitations": limitations,
     }
