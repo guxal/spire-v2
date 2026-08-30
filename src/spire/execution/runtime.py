@@ -243,6 +243,9 @@ def _search_campaign_operations(client: Any, operation: CompiledOperation) -> li
     create.name = payload["campaign_name"]
     create.status = client.enums.CampaignStatusEnum.PAUSED
     create.advertising_channel_type = client.enums.AdvertisingChannelTypeEnum.SEARCH
+    create.contains_eu_political_advertising = (
+        client.enums.EuPoliticalAdvertisingStatusEnum.DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING
+    )
     create.campaign_budget = payload["budget_resource_name"]
     create.network_settings.target_google_search = True
     create.network_settings.target_search_network = False
