@@ -57,3 +57,17 @@ def test_validate_mutate_and_readback_share_one_provider_client():
     assert verification.status == "VERIFIED"
     assert provider.get_client() is client
     assert [call["validate_only"] for call in client.service.calls if "validate_only" in call] == [True, False]
+
+
+def test_semantic_readback_rejects_the_wrong_budget():
+    client = _Client()
+    provider = GoogleAdsClientProvider(
+        GoogleAdsConfig({"developer_token": "token"}), client_factory=lambda _: client
+    )
+    operation = CompiledOperation(
+        "operation_runtime_2", "1234567890", "101", ChangeKind.UPDATE_BUDGET,
+        "customers/1234567890/campaignBudgets/9001", 13_000_000, "sha256:snapshot",
+    )
+    result = ProductionRuntime(provider).verify(operation)
+    assert result.status == "FAILED"
+    assert result.reason_code == "BUDGET_MISMATCH"
