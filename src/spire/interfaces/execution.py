@@ -2,6 +2,7 @@
 # @domain interfaces
 # @status stable
 # @adr [[0012-exact-human-approval]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_execution_authority.py]]
 """Thin external surfaces around the canonical execution service."""
 
@@ -25,6 +26,36 @@ class McpExecutionSurface:
             customer_id,
             campaign_id,
             daily_budget,
+            environment=environment,
+            provenance={"producer": "mcp"},
+        )
+
+    def change_negative_keyword(
+        self,
+        customer_id: str,
+        campaign_id: str,
+        text: object,
+        match_type: object,
+        *,
+        ad_group_id: str | None = None,
+        environment: str = "PRODUCTION",
+    ) -> dict:
+        return self.execution_service.prepare_add_negative_keyword(
+            customer_id,
+            campaign_id,
+            text,
+            match_type,
+            ad_group_id=ad_group_id,
+            environment=environment,
+            provenance={"producer": "mcp"},
+        )
+
+    def create_search_campaign(
+        self, customer_id: str, request: dict, environment: str = "PRODUCTION"
+    ) -> dict:
+        return self.execution_service.prepare_create_search_campaign(
+            customer_id,
+            request,
             environment=environment,
             provenance={"producer": "mcp"},
         )

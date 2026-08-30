@@ -3,6 +3,7 @@
 # @status stable
 # @adr [[0007-google-ads-provider-ownership]]
 # @adr [[0009-capability-projection]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_public_surfaces.py]]
 """Composition root for public Spire surfaces."""
 

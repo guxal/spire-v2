@@ -70,6 +70,38 @@ def test_prepare_stops_at_one_exact_human_approval_boundary(fake_runtime):
     assert len(list((workspace.execution("1234567890") / "approval_requests").glob("*.json"))) == 1
 
 
+def test_new_change_kinds_prepare_through_the_same_execution_run(fake_runtime):
+    workspace, provider, _ = fake_runtime
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    service = _service(workspace, provider, _PreviewRuntime())
+
+    negative = service.prepare_add_negative_keyword("1234567890", "101", "free quote", "EXACT")
+    campaign = service.prepare_create_search_campaign(
+        "1234567890",
+        {
+            "campaign_name": "Paused Search Test",
+            "daily_budget": "10",
+            "geo_target_ids": ["2170"],
+            "language_criterion_ids": ["1003"],
+            "bidding_strategy": "MAXIMIZE_CLICKS",
+            "ad_groups": [
+                {
+                    "name": "Core",
+                    "keywords": [{"text": "roof repair", "match_type": "PHRASE"}],
+                    "headlines": ["Roof repair", "Local roofers", "Request a quote"],
+                    "descriptions": ["Professional roof repair.", "Request a local quote today."],
+                    "final_url": "https://example.test/roof-repair",
+                }
+            ],
+        },
+    )
+
+    assert negative["state"] == campaign["state"] == "WAITING_FOR_APPROVAL"
+    store = service._store_factory(workspace, "1234567890")
+    assert store.load_spec(store.load_run(negative["run_id"]).spec_id).kind.value == "ADD_NEGATIVE_KEYWORD"
+    assert store.load_spec(store.load_run(campaign["run_id"]).spec_id).kind.value == "CREATE_SEARCH_CAMPAIGN"
+
+
 def test_trusted_approval_reuses_exact_operation_and_verifies(fake_runtime):
     from spire.interfaces import McpExecutionSurface, TrustedExecutionCli
 

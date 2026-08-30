@@ -3,6 +3,7 @@
 # @status stable
 # @adr [[0011-canonical-execution-lifecycle]]
 # @adr [[0012-exact-human-approval]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_execution_contracts.py]]
 """Small immutable contracts for the canonical execution lifecycle."""
 
@@ -24,6 +25,8 @@ from spire.core import (
 
 class ChangeKind(StrEnum):
     UPDATE_BUDGET = "UPDATE_BUDGET"
+    ADD_NEGATIVE_KEYWORD = "ADD_NEGATIVE_KEYWORD"
+    CREATE_SEARCH_CAMPAIGN = "CREATE_SEARCH_CAMPAIGN"
 
 
 class ExecutionMode(StrEnum):
@@ -76,8 +79,13 @@ class ChangeSpec:
         object.__setattr__(self, "requested_change", _freeze(self.requested_change))
         object.__setattr__(self, "snapshot_ref", _freeze(self.snapshot_ref))
         object.__setattr__(self, "provenance", _freeze(self.provenance))
-        if str(self.target.get("campaign_id", "")):
-            validate_google_ads_id(str(self.target["campaign_id"]), field="campaign_id")
+        campaign_id = str(self.target.get("campaign_id", ""))
+        if campaign_id:
+            validate_google_ads_id(campaign_id, field="campaign_id")
+        if self.kind in {ChangeKind.UPDATE_BUDGET, ChangeKind.ADD_NEGATIVE_KEYWORD} and not campaign_id:
+            raise ValueError("CHANGE_SPEC_CAMPAIGN_REQUIRED")
+        if self.kind is ChangeKind.CREATE_SEARCH_CAMPAIGN and not str(self.target.get("campaign_name", "")).strip():
+            raise ValueError("CHANGE_SPEC_CAMPAIGN_NAME_REQUIRED")
         forbidden = {"authority", "approval", "credentials", "execution_mode", "mode", "resource_name"}
         if forbidden.intersection(self.requested_change) or forbidden.intersection(self.provenance):
             raise ValueError("CHANGE_SPEC_AUTHORITY_OR_TECHNICAL_FIELD_FORBIDDEN")
@@ -111,34 +119,57 @@ class CompiledOperation:
     budget_resource_name: str
     daily_budget_micros: int
     snapshot_hash: str
+    payload: Mapping[str, Any] = field(default_factory=dict)
     compiler_version: str = "spire-v2.update-budget.v1"
     content_hash: str = ""
 
     def __post_init__(self) -> None:
         validate_artifact_id(self.operation_id, field="operation_id")
         validate_customer_id(self.customer_id)
-        validate_google_ads_id(self.campaign_id, field="campaign_id")
         object.__setattr__(self, "kind", ChangeKind(self.kind))
-        if self.kind is not ChangeKind.UPDATE_BUDGET or self.daily_budget_micros <= 0:
-            raise ValueError("INVALID_COMPILED_BUDGET")
-        if not self.budget_resource_name.startswith("customers/"):
-            raise ValueError("COMPILED_BUDGET_RESOURCE_INVALID")
+        object.__setattr__(self, "payload", _freeze(self.payload))
+        if self.campaign_id:
+            validate_google_ads_id(self.campaign_id, field="campaign_id")
+        if self.kind is ChangeKind.UPDATE_BUDGET:
+            if not self.campaign_id or self.daily_budget_micros <= 0:
+                raise ValueError("INVALID_COMPILED_BUDGET")
+            if not self.budget_resource_name.startswith("customers/"):
+                raise ValueError("COMPILED_BUDGET_RESOURCE_INVALID")
+        elif self.kind is ChangeKind.ADD_NEGATIVE_KEYWORD:
+            if not self.campaign_id or not str(self.payload.get("text", "")).strip():
+                raise ValueError("INVALID_COMPILED_NEGATIVE_KEYWORD")
+            if self.payload.get("match_type") not in {"EXACT", "PHRASE", "BROAD"}:
+                raise ValueError("INVALID_COMPILED_NEGATIVE_KEYWORD")
+            if self.payload.get("scope") not in {"CAMPAIGN", "AD_GROUP"}:
+                raise ValueError("INVALID_COMPILED_NEGATIVE_KEYWORD")
+            if self.payload.get("scope") == "AD_GROUP" and not str(self.payload.get("ad_group_id", "")):
+                raise ValueError("INVALID_COMPILED_NEGATIVE_KEYWORD")
+        elif self.kind is ChangeKind.CREATE_SEARCH_CAMPAIGN:
+            if self.campaign_id or self.daily_budget_micros <= 0:
+                raise ValueError("INVALID_COMPILED_SEARCH_CAMPAIGN")
+            if not str(self.payload.get("campaign_name", "")).strip() or not self.payload.get("ad_groups"):
+                raise ValueError("INVALID_COMPILED_SEARCH_CAMPAIGN")
+        else:
+            raise ValueError("UNSUPPORTED_CHANGE_KIND")
         expected = canonical_hash(self._hash_material())
         if self.content_hash and self.content_hash != expected:
             raise ValueError("COMPILED_OPERATION_HASH_MISMATCH")
         object.__setattr__(self, "content_hash", expected)
 
     def _hash_material(self) -> dict[str, Any]:
-        return {
+        material = {
             "operation_id": self.operation_id,
             "customer_id": self.customer_id,
-            "campaign_id": self.campaign_id,
             "kind": self.kind.value,
+            "campaign_id": self.campaign_id,
             "budget_resource_name": self.budget_resource_name,
             "daily_budget_micros": self.daily_budget_micros,
             "snapshot_hash": self.snapshot_hash,
             "compiler_version": self.compiler_version,
         }
+        if self.payload or self.kind is not ChangeKind.UPDATE_BUDGET:
+            material["payload"] = _hashable(self.payload)
+        return material
 
     def to_dict(self) -> dict[str, Any]:
         return {**self._hash_material(), "content_hash": self.content_hash}

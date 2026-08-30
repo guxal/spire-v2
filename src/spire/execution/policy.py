@@ -2,6 +2,7 @@
 # @domain execution
 # @status stable
 # @adr [[0011-canonical-execution-lifecycle]]
+# @adr [[0018-bounded-execution-operation-extension]]
 # @tested-by [[test_execution_policy.py]]
 """Pure hard safety policy for production execution."""
 
@@ -42,10 +43,14 @@ class HardPolicyService:
             reasons.append("SOURCE_MODE_NOT_COMPATIBLE")
         if snapshot.freshness.get("status") != "FRESH":
             reasons.append("REQUIRED_TRUTH_STALE")
-        if spec.kind is not ChangeKind.UPDATE_BUDGET or operation.kind is not ChangeKind.UPDATE_BUDGET:
+        if spec.kind is not operation.kind or spec.kind not in set(ChangeKind):
             reasons.append("UNSUPPORTED_CHANGE_KIND")
-        if operation.daily_budget_micros <= 0:
+        if spec.kind in {ChangeKind.UPDATE_BUDGET, ChangeKind.CREATE_SEARCH_CAMPAIGN} and operation.daily_budget_micros <= 0:
             reasons.append("INVALID_BUDGET_PRECONDITION")
+        if spec.kind is ChangeKind.ADD_NEGATIVE_KEYWORD and not str(operation.payload.get("text", "")):
+            reasons.append("INVALID_NEGATIVE_KEYWORD_PRECONDITION")
+        if spec.kind is ChangeKind.CREATE_SEARCH_CAMPAIGN and operation.payload.get("campaign_name") != spec.target.get("campaign_name"):
+            reasons.append("CAMPAIGN_NAME_PRECONDITION")
         return HardPolicyDecision(
             status="ALLOWED" if not reasons else "DENIED",
             reason_codes=tuple(reasons),
