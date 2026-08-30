@@ -1,26 +1,258 @@
-# Spire v2
+# Spire
 
-## Quick Start
+Spire is a deterministic Google Ads operations control plane. It acquires
+scoped provider data, freezes it as verifiable local truth, exposes safe
+evidence to people and agents, and executes authorized changes through one
+canonical lifecycle.
 
-1. Install: `uv sync` (or `python -m pip install -e ".[dev]"`).
-2. Configure and authenticate: `cp config/google-ads.example.yaml config/google-ads.yaml`, edit it, then run `spire auth google-ads login`.
-3. Verify: `spire auth google-ads verify` and select an account from the MCC picker, or use `--customer-id <customer_id>` for a direct check.
-4. Discover: `spire campaigns discover`.
-5. Refresh frozen truth: `spire account refresh --date-start YYYY-MM-DD --date-end YYYY-MM-DD`.
-6. Read a campaign: `spire campaigns get`.
-7. Query evidence: `spire evidence query --dataset campaign_daily`.
+## Principles
 
-Authentication details, credential locations, cache behavior, and
-troubleshooting are documented in [Google Ads Authentication](docs/google-ads-auth.md).
+- **Explicit acquisition.** Google Ads data enters Spire only through an
+  explicit discovery or refresh action.
+- **Frozen truth.** Reads and analysis consume a finalized, hashed snapshot;
+  they do not silently query the provider.
+- **Deterministic effects.** A production request compiles from exact frozen
+  truth into one immutable provider operation.
+- **Evidence before reasoning.** `evidence query` exposes scoped, structured
+  facts for external reasoning rather than embedding an LLM in the product.
+- **Human authority.** A production change requires exact, single-use human
+  approval for the persisted run.
+- **Semantic verification.** A successful provider response is not enough:
+  Spire reads back the provider state and verifies the requested meaning.
+- **One application contract.** CLI and MCP are thin adapters over the same
+  `PublicApi` and application services.
 
-## CLI interaction
+## Architecture
 
-All commands accept explicit identifiers. Safe read commands can offer a
-picker when an ID is omitted in an interactive terminal. `--no-input` and
-non-interactive execution never wait for input. Use `--json` for automation.
-The complete policy is [ADR-0015](docs/adr/0015-cli-interaction-policy.md).
+```text
+Human / Agent
+      |
+   CLI / MCP
+      |
+  PublicApi
+      |
+ Application
+      |
+Truth / Evidence / Execution
+      |
+WorkspacePaths + Google Ads provider
+```
 
-## MCP
+The architecture, stable boundaries, and journeys are described in
+[Architecture](docs/architecture/README.md). Accepted decisions live in
+[ADRs](docs/adr/).
 
-Start the real stdio server with `spire mcp`. Installation and host
-configuration are documented in [MCP installation](docs/mcp-installation.md).
+## Current capabilities
+
+### Authentication
+
+Spire supports installed-app Google OAuth bootstrap, secret-safe local status,
+and a harmless authenticated access check. It owns a customer-scoped temporary
+access-token cache and a lazy Google Ads client provider.
+
+### Account discovery
+
+Spire lists accessible accounts and discovers live campaigns for an explicit
+customer account.
+
+### Refresh
+
+An account refresh resolves a finite campaign scope, retrieves current Google
+Ads observations, and atomically publishes frozen truth with hashes and
+coverage states.
+
+### Campaign reads
+
+Campaign list and get read the current frozen snapshot. Their public budgets
+are expressed in account-currency units; provider and frozen monetary values
+remain integer micros.
+
+### Evidence
+
+`evidence datasets` lists logical datasets in the current snapshot.
+`evidence query` is a restricted, scoped query over those datasets. It returns
+logical evidence references, schema, freshness, and aggregation semantics.
+
+### Execution
+
+`UPDATE_BUDGET` is currently the only production mutation. It is compiled from
+frozen truth, remotely validated with Google Ads `validate_only`, evaluated by
+HardPolicy, held for exact human approval, dispatched once, and semantically
+verified by provider read-back.
+
+### CLI
+
+The `spire` command is the trusted human-facing interface. All commands accept
+explicit IDs, support `--json`, and can use `--no-input` in automation.
+
+### MCP
+
+`spire mcp` starts a stdio JSON-RPC server for safe public reads, refresh,
+evidence, run inspection, budget-change preparation, and approved-run resume.
+MCP cannot approve a run.
+
+## Quick start
+
+Spire requires Python 3.11 or later and Google Ads credentials.
+
+### Install
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+### Configure Google Ads and authenticate
+
+```bash
+cp config/google-ads.example.yaml config/google-ads.yaml
+# Edit config/google-ads.yaml with your developer token, OAuth client, and login customer ID.
+spire auth google-ads login
+spire auth google-ads verify --customer-id <customer_id>
+```
+
+The private `config/google-ads.yaml` file and tokens are never public API
+outputs. See [Google Ads authentication](docs/google-ads-auth.md) for setup,
+token lifecycle, and troubleshooting.
+
+### Select and refresh an account
+
+```bash
+spire accounts list
+spire campaigns discover --customer-id <customer_id>
+spire account refresh \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id> \
+  --date-start YYYY-MM-DD \
+  --date-end YYYY-MM-DD
+```
+
+`--campaign-id` may be omitted when a finite public discovery result can
+resolve the scope. The resulting refresh still executes against explicit,
+recorded campaign IDs.
+
+### Read campaigns and evidence
+
+```bash
+spire campaigns list --customer-id <customer_id>
+spire campaigns get --customer-id <customer_id> --campaign-id <campaign_id>
+spire evidence datasets --customer-id <customer_id> --campaign-id <campaign_id>
+spire evidence query \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id> \
+  --dataset campaign_daily \
+  --dimension date \
+  --metric impressions \
+  --metric clicks \
+  --metric cost_micros
+```
+
+### Start MCP
+
+```bash
+spire mcp
+```
+
+For a client configuration example and the available authority boundary, see
+[MCP installation](docs/mcp-installation.md).
+
+## Analyze a campaign
+
+Spire's analysis workflow is:
+
+```text
+refresh → campaigns get → evidence datasets/query → external LLM or human reasoning
+```
+
+First refresh the exact campaign and date range to obtain a new frozen
+snapshot. Confirm the campaign with `campaigns get`, inspect the dataset list,
+and query only that current logical evidence. Preserve each response's
+`evidence_ref` and its `coverage`, `attribution_scope`, and
+`aggregation_semantics` when reasoning about it.
+
+Spire currently has no internal LLM and no legacy `investigate` engine.
+It deliberately supplies evidence rather than recommendations from a hidden
+reasoning layer. See [Evidence aggregation semantics](docs/evidence-semantics.md).
+
+## Execute a budget change
+
+Read the current public budget, choose the exact target in account currency,
+then prepare one production run:
+
+```bash
+spire campaigns get --customer-id <customer_id> --campaign-id <campaign_id>
+spire change budget \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id> \
+  --daily-budget <target_budget> \
+  --environment PRODUCTION
+```
+
+Preparation deterministically compiles the operation, runs Google Ads
+`validate_only`, applies HardPolicy and authority coverage, persists the run,
+and stops in `WAITING_FOR_APPROVAL`. Inspect the same run from a new CLI
+process before approval:
+
+```bash
+spire runs list \
+  --customer-id <customer_id> \
+  --campaign-id <campaign_id> \
+  --status waiting_for_approval \
+  --latest
+spire runs get --run-id <run_id>
+```
+
+After a human has reviewed the exact current/proposed values, policy,
+fingerprint, validate-only result, and `request_sent` state, that human can
+approve the exact run once and resume it:
+
+```bash
+spire runs approve --run-id <run_id> --yes
+spire runs resume --run-id <run_id>
+spire runs get --run-id <run_id>
+```
+
+Resume persists `request_sent` before transport, never blindly retries an
+ambiguous send, and marks the run `VERIFIED` only after semantic read-back
+matches the target. MCP can prepare and inspect a run, but cannot approve it.
+
+## Workspace
+
+Runtime state is tenant-scoped:
+
+```text
+.spire/customers/<customer_id>/
+├── config/      # canonical per-customer category; no active payload today
+├── truth/       # finalized refresh publications, manifests, datasets, current pointer
+├── knowledge/   # canonical reserved category; no active BusinessProfile store today
+├── execution/   # ChangeSpecs, runs, approvals, and append-only events
+└── cache/       # temporary OAuth access-token metadata
+```
+
+`WorkspacePaths` is the only component that derives these paths. Public
+capabilities expose logical IDs and projections, not physical dataset paths.
+
+## Testing
+
+Run the local quality gates from the repository root:
+
+```bash
+python -m pytest
+python -m ruff check src tests
+```
+
+The architecture-specific checks are included in the test suite. The complete
+development workflow is documented in [Architecture](docs/architecture/README.md),
+[CodeGraph](docs/development/codegraph.md),
+[Obsidian](docs/development/obsidian.md), and [ADRs](docs/adr/).
+
+## Current limitations
+
+- `UPDATE_BUDGET` is the only production mutation.
+- Spire has no internal LLM, recommendation engine, or active BusinessProfile
+  store.
+- Google Ads segmented datasets can be partial or non-additive. Their response
+  semantics identify the coverage and safe comparison baseline.
+- Google Ads may restrict Auction Insights participant identity or metrics; no
+  domain is inferred when the provider does not return it.
+- Refresh is explicit. Read projections continue to use frozen truth until a
+  subsequent refresh publishes newer truth.
