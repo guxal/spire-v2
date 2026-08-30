@@ -99,6 +99,17 @@ explicit IDs, support `--json`, and can use `--no-input` in automation.
 evidence, run inspection, budget-change preparation, and approved-run resume.
 MCP cannot approve a run.
 
+## Using Spire through MCP
+
+After connecting Spire MCP, you can speak naturally to your agent. For example:
+
+- “Analyze the currently enabled campaign using fresh evidence only.”
+- “Find negative keyword candidates for the enabled campaign. Do not apply any.”
+- “Prepare a budget change to `<TARGET>` and stop for human approval.”
+
+See the [MCP user prompt guide](docs/mcp-usage-guide.md) for copy/paste
+workflows, approval instructions, supported capabilities, and troubleshooting.
+
 ## Quick start
 
 Spire requires Python 3.11 or later and Google Ads credentials.
