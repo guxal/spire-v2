@@ -65,7 +65,6 @@ def write_google_ads_config(
         "client_id": client_id,
         "client_secret": client_secret,
         "refresh_token": refresh_token,
-        "use_proto_plus": True,
     }
     if login_customer_id:
         config["login_customer_id"] = login_customer_id

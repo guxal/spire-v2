@@ -13,7 +13,7 @@ from spire.core import GoogleAdsAuthError, validate_customer_id
 
 from .auth import run_installed_app_oauth, write_google_ads_config
 from .config import default_google_ads_config_path, normalize_login_customer_id
-from .credentials import google_ads_token_cache_path, read_token_cache
+from .credentials import TOKEN_CACHE_SKEW, google_ads_token_cache_path, read_token_cache
 from .provider import GoogleAdsClientProvider
 
 
@@ -69,7 +69,11 @@ class GoogleAdsAuthService:
             google_ads_token_cache_path(self.workspace, login), now=datetime.now(UTC)
         ) if login else None
         expiry = cached["expiry"].isoformat() if cached else None
-        valid = "YES" if cached and cached["expiry"] > datetime.now(UTC) else "NO"
+        valid = (
+            "YES"
+            if cached and cached["expiry"] > datetime.now(UTC) + TOKEN_CACHE_SKEW
+            else "NO"
+        )
         configured = all(values[name] == "PRESENT" for name in values) and login is not None
         return {
             "configured": "YES" if configured else "NO",
