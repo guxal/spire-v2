@@ -6,7 +6,7 @@
 2. Configure and authenticate: `cp config/google-ads.example.yaml config/google-ads.yaml`, edit it, then run `spire auth google-ads login`.
 3. Verify: `spire auth google-ads verify` and select an account from the MCC picker, or use `--customer-id <customer_id>` for a direct check.
 4. Discover: `spire campaigns discover`.
-5. Refresh frozen truth: `spire account refresh`.
+5. Refresh frozen truth: `spire account refresh --date-start YYYY-MM-DD --date-end YYYY-MM-DD`.
 6. Read a campaign: `spire campaigns get`.
 7. Query evidence: `spire evidence query --dataset campaign_daily`.
 

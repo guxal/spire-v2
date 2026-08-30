@@ -56,7 +56,9 @@ class McpServer:
             text = json.dumps(result, sort_keys=True, default=str)
             return self._result(request_id, {"content": [{"type": "text", "text": text}], "structuredContent": result, "isError": False})
         except (SpireError, ValueError, TypeError, OSError, KeyError) as exc:
-            code = getattr(exc, "reason_code", None) or str(exc) or type(exc).__name__
+            code = getattr(exc, "reason_code", None) or (
+                "PROVIDER_UNAVAILABLE" if isinstance(exc, OSError) else str(exc)
+            ) or type(exc).__name__
             payload = {"error": code}
             return self._result(request_id, {"content": [{"type": "text", "text": json.dumps(payload)}], "structuredContent": payload, "isError": True})
 

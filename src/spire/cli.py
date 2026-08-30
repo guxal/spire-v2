@@ -27,7 +27,9 @@ def main(argv: list[str] | None = None, *, application: Application | None = Non
     try:
         return args.handler(context, args)
     except (SpireError, ValueError, TypeError, OSError, KeyError) as exc:
-        code = getattr(exc, "reason_code", None) or str(exc) or type(exc).__name__
+        code = getattr(exc, "reason_code", None) or (
+            "PROVIDER_UNAVAILABLE" if isinstance(exc, OSError) else str(exc)
+        ) or type(exc).__name__
         if args.json_output:
             context.emit({"error": code})
         else:

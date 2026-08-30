@@ -59,6 +59,10 @@ El servidor expone herramientas de estado de autenticación, cuentas,
 descubrimiento, refresh explícito, campañas, evidencia y runs. También puede
 preparar `UPDATE_BUDGET` hasta `WAITING_FOR_APPROVAL`.
 
+Los datasets segmentados de Google Ads requieren un rango finito. En
+`account_refresh`, pasa `date_range` con `start` y `end` cuando necesites
+evidencia de rendimiento.
+
 No expone `approve_run`, `grant_authority` ni `mint_approval`. La aprobación
 humana se realiza únicamente mediante el CLI confiable:
 
