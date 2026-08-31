@@ -178,6 +178,60 @@ def test_mcp_handshake_tools_and_no_approval_tool():
     assert "grant_authority" not in names
 
 
+def test_mcp_evidence_query_date_range_schema_matches_runtime(fake_runtime):
+    workspace, provider, _calls = fake_runtime
+    api = PublicApi(Application(workspace, provider_factory=lambda _workspace, _customer_id: provider))
+    api.account_refresh(
+        "1234567890",
+        campaign_id="101",
+        date_range={"start": "2026-08-01", "end": "2026-08-02"},
+    )
+    server = McpServer(api)
+    listed = server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    evidence = next(tool for tool in listed["result"]["tools"] if tool["name"] == "evidence_query")
+    date_range = evidence["inputSchema"]["properties"]["date_range"]
+
+    assert "date_range" not in evidence["inputSchema"]["required"]
+    assert date_range == {
+        "type": "object",
+        "required": ["start", "end"],
+        "additionalProperties": False,
+        "properties": {
+            "start": {"type": "string", "format": "date"},
+            "end": {"type": "string", "format": "date"},
+        },
+    }
+
+    canonical = _mcp_call(
+        server,
+        "evidence_query",
+        {
+            "customer_id": "1234567890",
+            "campaign_ids": ["101"],
+            "dataset": "campaign_daily",
+            "date_range": {"start": "2026-08-01", "end": "2026-08-02"},
+        },
+    )
+    assert canonical["isError"] is False
+    assert canonical["structuredContent"]["scope"]["date_range"] == {
+        "start": "2026-08-01",
+        "end": "2026-08-02",
+    }
+
+    invalid = _mcp_call(
+        server,
+        "evidence_query",
+        {
+            "customer_id": "1234567890",
+            "campaign_ids": ["101"],
+            "dataset": "campaign_daily",
+            "date_range": {"start_date": "2026-08-01", "end_date": "2026-08-02"},
+        },
+    )
+    assert invalid["isError"] is True
+    assert "DateRange.__init__() got an unexpected keyword argument" in invalid["structuredContent"]["error"]
+
+
 def test_mcp_runs_list_delegates_safe_filters_to_public_api():
     api = FakeApi()
     server = McpServer(api)
