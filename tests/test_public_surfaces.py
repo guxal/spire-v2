@@ -4,6 +4,8 @@ import io
 import json
 from types import SimpleNamespace
 
+from mcp.types import CallToolResult
+
 from spire.application import Application
 from spire.cli_commands import auth, campaigns, execution
 from spire.cli_commands.common import CommandContext, require_customer
@@ -37,9 +39,51 @@ class FakeApi:
     def campaigns_get(self, customer_id, campaign_id):
         return {"campaign_id": campaign_id, "name": "Search", "daily_budget": 10, "currency": "USD"}
 
+    def account_refresh(self, customer_id, **kwargs):
+        return {"customer_id": customer_id, "status": "COMPLETE"}
+
+    def campaigns_discover(self, customer_id):
+        return {"customer_id": customer_id, "campaigns": []}
+
+    def evidence_query(self, customer_id, campaign_ids, dataset, **kwargs):
+        return {"customer_id": customer_id, "dataset": dataset, "rows": []}
+
+    def evidence_datasets(self, customer_id, campaign_id):
+        return {"customer_id": customer_id, "campaign_id": campaign_id, "datasets": []}
+
+    def change_budget(self, customer_id, campaign_id, daily_budget, **kwargs):
+        return {"customer_id": customer_id, "campaign_id": campaign_id, "run_id": "run_budget"}
+
+    def negative_keyword_candidates(self, customer_id, campaign_id):
+        return {"customer_id": customer_id, "campaign_id": campaign_id, "candidates": []}
+
+    def change_negative_keyword(self, customer_id, campaign_id, text, match_type, **kwargs):
+        return {"customer_id": customer_id, "campaign_id": campaign_id, "run_id": "run_negative"}
+
+    def create_search_campaign(self, customer_id, request, **kwargs):
+        return {"customer_id": customer_id, "run_id": "run_campaign"}
+
     def runs_list(self, **filters):
         self.runs_filters = filters
-        return [{"run_id": "run_test", "state": "WAITING_FOR_APPROVAL"}]
+        runs = [{"run_id": "run_test", "state": "WAITING_FOR_APPROVAL"}]
+        return runs[0] if filters.get("latest") else runs
+
+    def run_get(self, run_id):
+        return {"run_id": run_id, "state": "WAITING_FOR_APPROVAL"}
+
+    def run_resume(self, run_id):
+        return {"run_id": run_id, "state": "VERIFIED"}
+
+
+def _mcp_call(server, name, arguments=None):
+    return server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments or {}},
+        }
+    )["result"]
 
 
 def test_picker_selects_account_and_explicit_id_skips_picker(monkeypatch):
@@ -142,6 +186,105 @@ def test_mcp_runs_list_delegates_safe_filters_to_public_api():
         "limit": 3,
         "latest": True,
         "order_by": "updated_at",
+    }
+
+
+def test_mcp_collection_results_wrap_application_lists_and_preserve_text_content():
+    api = FakeApi()
+    server = McpServer(api)
+
+    assert isinstance(api.accounts_list(), list)
+    accounts = _mcp_call(server, "accounts_list")
+    assert accounts["structuredContent"] == {
+        "accounts": [{"customer_id": "1234567890", "name": "Example"}]
+    }
+    assert json.loads(accounts["content"][0]["text"]) == accounts["structuredContent"]
+
+    assert isinstance(api.campaigns_list("1234567890"), list)
+    campaigns_result = _mcp_call(server, "campaigns_list", {"customer_id": "1234567890"})
+    assert campaigns_result["structuredContent"] == {
+        "campaigns": [{"campaign_id": "101", "name": "Search", "status": "ENABLED"}]
+    }
+
+
+def test_mcp_accounts_list_wraps_an_empty_application_result(monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(api, "accounts_list", list)
+
+    result = _mcp_call(McpServer(api), "accounts_list")
+
+    assert result["structuredContent"] == {"accounts": []}
+
+
+def test_mcp_runs_list_has_a_stable_plural_envelope_for_both_modes():
+    api = FakeApi()
+    server = McpServer(api)
+
+    normal = _mcp_call(server, "runs_list")
+    latest = _mcp_call(server, "runs_list", {"latest": True})
+
+    expected_runs = [{"run_id": "run_test", "state": "WAITING_FOR_APPROVAL"}]
+    assert normal["structuredContent"] == {"runs": expected_runs}
+    assert latest["structuredContent"] == {"runs": expected_runs}
+
+
+def test_every_published_successful_mcp_result_has_object_structured_content():
+    server = McpServer(FakeApi())
+    calls = (
+        ("auth_status", {}),
+        ("accounts_list", {}),
+        ("account_refresh", {"customer_id": "1234567890"}),
+        ("campaigns_discover", {"customer_id": "1234567890"}),
+        ("campaigns_list", {"customer_id": "1234567890"}),
+        ("campaigns_get", {"customer_id": "1234567890", "campaign_id": "101"}),
+        (
+            "evidence_query",
+            {"customer_id": "1234567890", "campaign_ids": ["101"], "dataset": "campaign_daily"},
+        ),
+        ("evidence_datasets", {"customer_id": "1234567890", "campaign_id": "101"}),
+        (
+            "change_budget",
+            {
+                "customer_id": "1234567890",
+                "campaign_id": "101",
+                "daily_budget": 10,
+                "environment": "production",
+            },
+        ),
+        ("negative_keyword_candidates", {"customer_id": "1234567890", "campaign_id": "101"}),
+        (
+            "change_negative_keyword",
+            {
+                "customer_id": "1234567890",
+                "campaign_id": "101",
+                "text": "term",
+                "match_type": "EXACT",
+                "environment": "production",
+            },
+        ),
+        (
+            "create_search_campaign",
+            {"customer_id": "1234567890", "request": {}, "environment": "production"},
+        ),
+        ("runs_list", {}),
+        ("run_get", {"run_id": "run_test"}),
+        ("run_resume", {"run_id": "run_test"}),
+    )
+
+    for name, arguments in calls:
+        result = _mcp_call(server, name, arguments)
+        assert result["isError"] is False, name
+        assert isinstance(result["structuredContent"], dict), name
+        assert json.loads(result["content"][0]["text"]) == result["structuredContent"], name
+
+
+def test_mcp_response_is_accepted_by_the_installed_mcp_call_tool_result_model():
+    response = _mcp_call(McpServer(FakeApi()), "accounts_list")
+
+    parsed = CallToolResult.model_validate(response)
+
+    assert parsed.structuredContent == {
+        "accounts": [{"customer_id": "1234567890", "name": "Example"}]
     }
 
 

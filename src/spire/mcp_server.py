@@ -39,6 +39,12 @@ TOOLS = (
     ("run_resume", "Resume an already human-approved run.", {"type": "object", "required": ["run_id"], "properties": {"run_id": {"type": "string"}}}),
 )
 
+COLLECTION_ENVELOPES = {
+    "accounts_list": "accounts",
+    "campaigns_list": "campaigns",
+    "runs_list": "runs",
+}
+
 
 class McpServer:
     def __init__(self, api: PublicApi) -> None:
@@ -64,8 +70,9 @@ class McpServer:
         arguments = params.get("arguments") or {}
         try:
             result = self._dispatch(name, arguments)
-            text = json.dumps(result, sort_keys=True, default=str)
-            return self._result(request_id, {"content": [{"type": "text", "text": text}], "structuredContent": result, "isError": False})
+            structured_content = self._structured_content(name, result)
+            text = json.dumps(structured_content, sort_keys=True, default=str)
+            return self._result(request_id, {"content": [{"type": "text", "text": text}], "structuredContent": structured_content, "isError": False})
         except (SpireError, ValueError, TypeError, OSError, KeyError) as exc:
             code = getattr(exc, "reason_code", None) or (
                 "PROVIDER_UNAVAILABLE" if isinstance(exc, OSError) else str(exc)
@@ -112,6 +119,13 @@ class McpServer:
         if name == "run_resume":
             return self.api.run_resume(args["run_id"])
         raise ValueError("MCP_TOOL_NOT_FOUND")
+
+    @staticmethod
+    def _structured_content(name: str, result: Any) -> Any:
+        envelope = COLLECTION_ENVELOPES.get(name)
+        if envelope is None:
+            return result
+        return {envelope: result if isinstance(result, list) else [result]}
 
     @staticmethod
     def _result(request_id: Any, result: Any) -> dict[str, Any]:
