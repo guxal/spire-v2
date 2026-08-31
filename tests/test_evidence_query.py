@@ -7,7 +7,11 @@ import pytest
 
 from spire.core import ScopeMismatchError
 from spire.google_ads import GoogleAdsClientProvider, RefreshSpec, ScopedRefreshService
-from spire.google_ads.evidence_datasets import _strings
+from spire.google_ads.evidence_datasets import (
+    _strings,
+    auction_participant_availability_rows,
+    normalize_auction_summary_row,
+)
 from spire.interfaces import DateRange, EvidenceQueryRequest
 from spire.truth import EvidenceQueryService
 from spire.truth.evidence import _dimension_group_key, _normalize_dimension_value
@@ -216,52 +220,6 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
     assert "geoTargetConstants/" not in json.dumps(geo)
     assert "totals can differ from campaign_daily" in geo["semantics"]["limitations"][0]
 
-    auction = service.query(
-        EvidenceQueryRequest(
-            "1234567890",
-            ("101",),
-            "auction_insights",
-            dimensions=("row_type", "auction_participant_domain"),
-            metrics=(
-                "auction_insight_search_impression_share",
-                "auction_insight_search_overlap_rate",
-                "auction_insight_search_position_above_rate",
-            ),
-        )
-    )
-    assert auction["aggregates"] == [
-        {
-            "row_type": "AUCTION_PARTICIPANT",
-            "auction_participant_domain": "competitor.example",
-            "auction_insight_search_impression_share": 0.35,
-            "auction_insight_search_overlap_rate": 0.2,
-            "auction_insight_search_position_above_rate": 0.1,
-        },
-        {
-            "row_type": "CAMPAIGN_SUMMARY",
-            "auction_participant_domain": None,
-            "auction_insight_search_impression_share": None,
-            "auction_insight_search_overlap_rate": None,
-            "auction_insight_search_position_above_rate": None,
-        },
-    ]
-    auction_summary = service.query(
-        EvidenceQueryRequest(
-            "1234567890",
-            ("101",),
-            "auction_insights",
-            filters={"row_type": "CAMPAIGN_SUMMARY"},
-            metrics=("search_impression_share", "search_budget_lost_impression_share"),
-        )
-    )
-    assert auction_summary["aggregates"] == [
-        {
-            "search_impression_share": 0.5,
-            "search_budget_lost_impression_share": 0.2,
-        }
-    ]
-    assert "Filter by row_type" in auction["semantics"]["aggregation_semantics"]
-
     ad_performance = service.query(
         EvidenceQueryRequest(
             "1234567890",
@@ -321,53 +279,35 @@ def test_evidence_query_returns_analysis_ready_frozen_evidence(tmp_path, campaig
         }
     ]
 
-    for dataset in ("campaign_ad_groups", "campaign_ads", "ad_performance", "campaign_assets", "campaign_asset_performance", "rsa_asset_performance", "geo_daily", "schedule_day", "schedule_hour", "auction_insights"):
+    for dataset in ("campaign_ad_groups", "campaign_ads", "ad_performance", "campaign_assets", "campaign_asset_performance", "rsa_asset_performance", "geo_daily", "schedule_day", "schedule_hour"):
         result = service.query(EvidenceQueryRequest("1234567890", ("101",), dataset))
         assert result["schema"]["dataset"] == dataset
         assert result["scope"]["extraction_id"].startswith("extract_")
 
-    assert len(transport.calls) == 22
+    assert len(transport.calls) == 20
     assert not (tmp_path / "investigations").exists()
     assert not (tmp_path / "data").exists()
 
 
-def test_auction_summary_survives_unavailable_participant_metrics(tmp_path, campaign_rows):
-    transport = _EvidenceService(campaign_rows, participant_query_unavailable=True)
-    provider = GoogleAdsClientProvider(
-        {"developer_token": "test", "login_customer_id": "123-456-7890"},
-        client_factory=lambda _: _EvidenceClient(transport),
+def test_auction_helpers_remain_available_for_reenablement():
+    availability = auction_participant_availability_rows(
+        "1234567890", ("101",), status="QUERY_UNAVAILABLE"
     )
-    from spire.core import WorkspacePaths
-
-    workspace = WorkspacePaths(tmp_path)
-    ScopedRefreshService(provider, workspace).refresh(
-        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
-    )
-
-    response = EvidenceQueryService(workspace).query(
-        EvidenceQueryRequest(
-            "1234567890",
-            ("101",),
-            "auction_insights",
-            dimensions=("row_type", "participant_data_status", "participant_data_limitation"),
-            metrics=("search_impression_share",),
-        )
-    )
-
-    assert response["aggregates"] == [
+    assert availability == [
         {
+            "customer_id": "1234567890",
+            "campaign_id": "101",
+            "date": None,
             "row_type": "PARTICIPANT_AVAILABILITY",
+            "auction_participant_domain": None,
             "participant_data_status": "QUERY_UNAVAILABLE",
             "participant_data_limitation": "Google Ads did not authorize or complete the Auction Insights participant query for this refresh.",
-            "search_impression_share": None,
-        },
-        {
-            "row_type": "CAMPAIGN_SUMMARY",
-            "participant_data_status": "NOT_APPLICABLE",
-            "participant_data_limitation": None,
-            "search_impression_share": 0.5,
-        },
+        }
     ]
+    assert normalize_auction_summary_row(
+        {"campaign_id": "101", "date": "2026-08-01", "search_impression_share": 0.5},
+        "1234567890",
+    )["search_impression_share"] == 0.5
 
 
 def test_structured_dimensions_group_without_losing_json_shape(tmp_path, campaign_rows):

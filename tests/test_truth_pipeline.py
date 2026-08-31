@@ -12,10 +12,12 @@ from spire.google_ads import (
     ScopedRefreshService,
 )
 from spire.google_ads.evidence_datasets import (
+    EVIDENCE_DATASETS,
     HISTORICAL_EVIDENCE_DATASETS,
     auction_summary_query,
     evidence_query,
 )
+from spire.google_ads.extraction import REFRESH_EVIDENCE_DATASETS
 from spire.interfaces import DateRange
 from spire.truth import AccountSnapshotService, DatasetResolver, DatasetState
 
@@ -38,7 +40,11 @@ def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
     )
     assert refreshed.manifest.status == "FINALIZED"
     assert refreshed.manifest.datasets["campaigns"]["state"] == DatasetState.PRESENT
-    assert len(calls) == 22
+    assert "auction_insights" not in refreshed.manifest.datasets
+    assert "auction_insights" in EVIDENCE_DATASETS
+    assert "auction_insights" not in REFRESH_EVIDENCE_DATASETS
+    assert not any("auction_insight" in query for query in calls)
+    assert len(calls) == 20
 
     snapshot = AccountSnapshotService(workspace).current("1234567890", campaign_ids=("101",))
     assert snapshot.source.value == "LIVE"

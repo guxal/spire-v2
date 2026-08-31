@@ -343,6 +343,11 @@ tool names.
 - deterministic negative-keyword candidates from frozen evidence;
 - safe execution-Run listing and inspection.
 
+Temporary hackathon note: Auction Insights remains implemented, but automatic
+account refresh currently skips it because the authorized Google Ads developer
+account cannot retrieve its optional participant metrics. Re-enable it in the
+refresh dataset selection when that access is available.
+
 ### Supported mutations
 
 - `UPDATE_BUDGET`;

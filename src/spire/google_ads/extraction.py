@@ -41,6 +41,12 @@ from .evidence_datasets import (
 )
 from .provider import GoogleAdsClientProvider
 
+# Temporary hackathon exclusion: retain the optional implementation for
+# re-enablement when the authorized developer account can retrieve its metrics.
+REFRESH_EVIDENCE_DATASETS = tuple(
+    dataset for dataset in EVIDENCE_DATASETS if dataset != "auction_insights"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class RefreshSpec:
@@ -130,7 +136,7 @@ class ScopedRefreshService:
             "account": self._write_dataset(staging, "account", accounts),
             "campaigns": self._write_dataset(staging, "campaigns", campaigns),
         }
-        for dataset in EVIDENCE_DATASETS:
+        for dataset in REFRESH_EVIDENCE_DATASETS:
             try:
                 if dataset == "negative_keywords":
                     rows = self._negative_keyword_rows(spec, observed_at)
