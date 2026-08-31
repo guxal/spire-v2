@@ -125,8 +125,9 @@ class PublicApi:
     def evidence_datasets(self, customer_id: str, campaign_id: str) -> dict[str, Any]:
         customer_id = validate_customer_id(customer_id)
         campaign_id = validate_google_ads_id(campaign_id, field="campaign_id")
-        snapshot = self.application.for_customer(customer_id).evidence.snapshots.current(
-            customer_id, campaign_ids=(campaign_id,)
+        snapshot = self.application.for_customer(customer_id).evidence.snapshots.latest_compatible(
+            customer_id,
+            campaign_ids=(campaign_id,),
         )
         return {
             "customer_id": customer_id,

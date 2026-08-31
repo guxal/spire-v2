@@ -380,6 +380,27 @@ def test_public_api_clean_workspace_refresh_and_frozen_reads(fake_runtime):
     assert "campaign_daily" in evidence["evidence_ref"]
 
 
+def test_evidence_datasets_resolves_compatible_finalized_snapshot_across_campaign_switches(fake_runtime):
+    workspace, provider, _calls = fake_runtime
+    api = PublicApi(Application(workspace, provider_factory=lambda _workspace, _customer_id: provider))
+
+    api.account_refresh(
+        "1234567890",
+        campaign_id="101",
+        date_range={"start": "2026-08-01", "end": "2026-08-02"},
+    )
+    api.account_refresh(
+        "1234567890",
+        campaign_id="202",
+        date_range={"start": "2026-08-01", "end": "2026-08-02"},
+    )
+
+    for campaign_id in ("101", "202", "101"):
+        datasets = api.evidence_datasets("1234567890", campaign_id)
+        assert datasets["campaign_id"] == campaign_id
+        assert {dataset["dataset"] for dataset in datasets["datasets"]} >= {"campaigns", "campaign_daily"}
+
+
 def test_google_ads_budget_operation_places_update_mask_on_operation():
     operation = CompiledOperation(
         operation_id="operation_test123",
