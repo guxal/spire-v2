@@ -80,6 +80,21 @@ class PublicApi:
         campaign_id = validate_google_ads_id(campaign_id, field="campaign_id")
         return self.application.for_customer(customer_id).campaigns.get(customer_id, campaign_id)
 
+    def geo_targets_suggest(
+        self,
+        customer_id: str,
+        names: list[str] | tuple[str, ...],
+        country_code: str,
+        *,
+        locale: str | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        customer_id = validate_customer_id(customer_id)
+        return self.application.for_customer(customer_id).geo_targets.suggest(
+            names,
+            country_code=country_code,
+            locale=locale,
+        )
+
     def evidence_query(
         self,
         customer_id: str,

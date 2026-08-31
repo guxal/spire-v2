@@ -10,12 +10,14 @@ from .config import GoogleAdsConfig, default_google_ads_config_path, normalize_l
 from .credentials import GoogleAdsCredentialProvider, google_ads_token_cache_path
 from .discovery import AccountDiscoveryService, DiscoveryResult
 from .extraction import RefreshResult, RefreshSpec, ScopedRefreshService
+from .geo_targets import GeoTargetSuggestionService
 from .provider import GoogleAdsClientProvider
 
 __all__ = [
     "AccountDiscoveryService",
     "CampaignReadService",
     "DiscoveryResult",
+    "GeoTargetSuggestionService",
     "GoogleAdsAuthService",
     "GoogleAdsClientProvider",
     "GoogleAdsConfig",

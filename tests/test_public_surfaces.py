@@ -39,6 +39,23 @@ class FakeApi:
     def campaigns_get(self, customer_id, campaign_id):
         return {"campaign_id": campaign_id, "name": "Search", "daily_budget": 10, "currency": "USD"}
 
+    def geo_targets_suggest(self, customer_id, names, country_code, **kwargs):
+        return {
+            "geo_targets": [
+                {
+                    "id": "100",
+                    "resource_name": "geoTargetConstants/100",
+                    "name": names[0],
+                    "canonical_name": f"{names[0]}, {country_code}",
+                    "country_code": country_code,
+                    "target_type": "City",
+                    "status": "ENABLED",
+                    "search_term": names[0],
+                    "reach": 1000,
+                }
+            ]
+        }
+
     def account_refresh(self, customer_id, **kwargs):
         return {"customer_id": customer_id, "status": "COMPLETE"}
 
@@ -152,6 +169,7 @@ def test_mcp_handshake_tools_and_no_approval_tool():
     assert refresh["inputSchema"]["required"] == ["customer_id", "date_range"]
     assert refresh["inputSchema"]["properties"]["date_range"]["required"] == ["start", "end"]
     assert "change_budget" in names
+    assert "geo_targets_suggest" in names
     assert "negative_keyword_candidates" in names
     assert "change_negative_keyword" in names
     assert "create_search_campaign" in names
@@ -241,6 +259,15 @@ def test_every_published_successful_mcp_result_has_object_structured_content():
         ("campaigns_list", {"customer_id": "1234567890"}),
         ("campaigns_get", {"customer_id": "1234567890", "campaign_id": "101"}),
         (
+            "geo_targets_suggest",
+            {
+                "customer_id": "1234567890",
+                "names": ["Pamplona"],
+                "country_code": "ES",
+                "locale": "es",
+            },
+        ),
+        (
             "evidence_query",
             {"customer_id": "1234567890", "campaign_ids": ["101"], "dataset": "campaign_daily"},
         ),
@@ -291,6 +318,28 @@ def test_mcp_response_is_accepted_by_the_installed_mcp_call_tool_result_model():
     }
 
 
+def test_mcp_geo_target_suggestions_are_object_shaped_and_preserve_errors():
+    arguments = {
+        "customer_id": "1234567890",
+        "names": ["Pamplona"],
+        "country_code": "ES",
+        "locale": "es",
+    }
+    response = _mcp_call(McpServer(FakeApi()), "geo_targets_suggest", arguments)
+
+    parsed = CallToolResult.model_validate(response)
+    assert parsed.structuredContent == response["structuredContent"]
+    assert response["structuredContent"]["geo_targets"][0]["canonical_name"] == "Pamplona, ES"
+
+    class ProviderUnavailableApi(FakeApi):
+        def geo_targets_suggest(self, *args, **kwargs):
+            raise OSError("unavailable")
+
+    failed = _mcp_call(McpServer(ProviderUnavailableApi()), "geo_targets_suggest", arguments)
+    assert failed["isError"] is True
+    assert failed["structuredContent"] == {"error": "PROVIDER_UNAVAILABLE"}
+
+
 def test_mcp_stdio_is_json_rpc_and_uses_structured_content():
     incoming = io.StringIO(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize"}) + "\n")
     outgoing = io.StringIO()
@@ -302,6 +351,7 @@ def test_mcp_stdio_is_json_rpc_and_uses_structured_content():
 def test_mcp_schemas_have_explicit_scope_for_reads():
     schemas = {name: schema for name, _, schema in TOOLS}
     assert schemas["campaigns_get"]["required"] == ["customer_id", "campaign_id"]
+    assert schemas["geo_targets_suggest"]["required"] == ["customer_id", "names", "country_code"]
     assert schemas["evidence_query"]["required"] == ["customer_id", "campaign_ids", "dataset"]
     assert schemas["change_negative_keyword"]["required"] == ["customer_id", "campaign_id", "text", "match_type", "environment"]
     assert schemas["create_search_campaign"]["required"] == ["customer_id", "request", "environment"]

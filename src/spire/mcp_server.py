@@ -28,6 +28,7 @@ TOOLS = (
     ("campaigns_discover", "Discover live campaigns for an account.", _customer_schema()),
     ("campaigns_list", "List campaigns from the frozen catalog.", _customer_schema()),
     ("campaigns_get", "Read one campaign from the current snapshot.", {"type": "object", "required": ["customer_id", "campaign_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}}}),
+    ("geo_targets_suggest", "Suggest live Google Ads geo targets for human-readable locations.", {"type": "object", "required": ["customer_id", "names", "country_code"], "properties": {"customer_id": {"type": "string"}, "names": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "country_code": {"type": "string"}, "locale": {"type": "string"}}}),
     ("evidence_query", "Query safe frozen evidence.", {"type": "object", "required": ["customer_id", "campaign_ids", "dataset"], "properties": {"customer_id": {"type": "string"}, "campaign_ids": {"type": "array", "items": {"type": "string"}}, "dataset": {"type": "string"}, "date_range": {"type": "object"}, "dimensions": {"type": "array", "items": {"type": "string"}}, "metrics": {"type": "array", "items": {"type": "string"}}, "filters": {"type": "object"}, "limit": {"type": "integer"}, "order_by": {"type": ["string", "array"]}}}),
     ("evidence_datasets", "List logical datasets in the current snapshot.", {"type": "object", "required": ["customer_id", "campaign_id"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}}}),
     ("change_budget", "Prepare an UPDATE_BUDGET run; production stops for human approval.", {"type": "object", "required": ["customer_id", "campaign_id", "daily_budget", "environment"], "properties": {"customer_id": {"type": "string"}, "campaign_id": {"type": "string"}, "daily_budget": {}, "environment": {"type": "string"}}}),
@@ -93,6 +94,13 @@ class McpServer:
             return self.api.campaigns_list(args["customer_id"])
         if name == "campaigns_get":
             return self.api.campaigns_get(args["customer_id"], args["campaign_id"])
+        if name == "geo_targets_suggest":
+            return self.api.geo_targets_suggest(
+                args["customer_id"],
+                args["names"],
+                args["country_code"],
+                locale=args.get("locale"),
+            )
         if name == "evidence_query":
             return self.api.evidence_query(args["customer_id"], args["campaign_ids"], args["dataset"], date_range=args.get("date_range"), dimensions=args.get("dimensions", ()), metrics=args.get("metrics", ()), filters=args.get("filters", {}), limit=args.get("limit", 100), order_by=args.get("order_by"))
         if name == "evidence_datasets":

@@ -24,6 +24,7 @@ from spire.execution import (
 from spire.google_ads import (
     AccountDiscoveryService,
     CampaignReadService,
+    GeoTargetSuggestionService,
     GoogleAdsAuthService,
     GoogleAdsClientProvider,
     ScopedRefreshService,
@@ -38,6 +39,7 @@ class CustomerServices:
     discovery: AccountDiscoveryService
     refresh: ScopedRefreshService
     campaigns: CampaignReadService
+    geo_targets: GeoTargetSuggestionService
     evidence: EvidenceQueryService
     negative_candidates: NegativeKeywordCandidateService
     execution: ExecutionRunService
@@ -65,6 +67,7 @@ class Application:
             discovery=discovery,
             refresh=ScopedRefreshService(provider, self.workspace),
             campaigns=CampaignReadService(discovery, snapshots),
+            geo_targets=GeoTargetSuggestionService(provider),
             evidence=EvidenceQueryService(self.workspace, snapshots=snapshots),
             negative_candidates=NegativeKeywordCandidateService(self.workspace, snapshots=snapshots),
             execution=ExecutionRunService(

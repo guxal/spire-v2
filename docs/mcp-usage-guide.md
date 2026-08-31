@@ -336,6 +336,7 @@ tool names.
 - Google Ads authentication status and accessible-account listing;
 - live campaign discovery, plus campaign list and get from the current frozen
   snapshot;
+- live Google Ads geo-target suggestions for human-readable location names;
 - explicit account refresh with an optional campaign scope and required finite
   date range;
 - logical-dataset listing and safe frozen `evidence_query`;
