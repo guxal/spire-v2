@@ -50,6 +50,8 @@ class PublicApi:
             raise ValueError("NO_CAMPAIGNS_AVAILABLE")
         if date_range is not None and not isinstance(date_range, DateRange):
             date_range = DateRange(**date_range)
+        if date_range is None:
+            raise ValueError("FINITE_EVIDENCE_DATE_RANGE_REQUIRED")
         result = services.refresh.refresh(RefreshSpec(customer_id, campaign_ids, date_range))
         return {
             "status": "COMPLETE",

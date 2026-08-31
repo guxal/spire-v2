@@ -3,6 +3,7 @@ from spire.execution.authority import AuthorityService
 from spire.execution.policy import HardPolicyService
 from spire.execution.service import ExecutionRunService
 from spire.google_ads import RefreshSpec, ScopedRefreshService
+from spire.interfaces import DateRange
 from spire.truth import AccountSnapshotService
 
 
@@ -56,7 +57,7 @@ def _service(workspace, provider, runtime):
 
 def test_prepare_stops_at_one_exact_human_approval_boundary(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
     runtime = _PreviewRuntime()
     result = _service(workspace, provider, runtime).prepare_change_budget(
         "1234567890", "101", "13", provenance={"producer": "test"}
@@ -72,7 +73,7 @@ def test_prepare_stops_at_one_exact_human_approval_boundary(fake_runtime):
 
 def test_new_change_kinds_prepare_through_the_same_execution_run(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
     service = _service(workspace, provider, _PreviewRuntime())
 
     negative = service.prepare_add_negative_keyword("1234567890", "101", "free quote", "EXACT")
@@ -106,7 +107,7 @@ def test_trusted_approval_reuses_exact_operation_and_verifies(fake_runtime):
     from spire.interfaces import McpExecutionSurface, TrustedExecutionCli
 
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
     runtime = _FullRuntime()
     service = _service(workspace, provider, runtime)
     mcp = McpExecutionSurface(service)

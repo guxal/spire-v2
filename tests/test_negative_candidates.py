@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from spire.core import WorkspacePaths
 from spire.google_ads import GoogleAdsClientProvider, RefreshSpec, ScopedRefreshService
+from spire.interfaces import DateRange
 from spire.truth import NegativeKeywordCandidateService
 
 
@@ -50,7 +51,9 @@ def test_candidates_are_deterministic_frozen_evidence_only(tmp_path):
     client = _Client()
     workspace = WorkspacePaths(tmp_path)
     provider = GoogleAdsClientProvider({"developer_token": "test"}, client_factory=lambda _: client)
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(
+        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
+    )
 
     result = NegativeKeywordCandidateService(workspace).candidates("1234567890", "101")
 

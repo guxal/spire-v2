@@ -10,6 +10,7 @@ from spire.google_ads import (
     RefreshSpec,
     ScopedRefreshService,
 )
+from spire.interfaces import DateRange
 from spire.truth import AccountSnapshotService, DatasetResolver
 
 
@@ -34,7 +35,7 @@ def test_clean_account_bootstrap_from_zero(tmp_path, campaign_rows):
 
     assert not calls
     reads.discover(customer_id)
-    result = refresh.refresh(RefreshSpec(customer_id, ("101",)))
+    result = refresh.refresh(RefreshSpec(customer_id, ("101",), DateRange("2026-08-01", "2026-08-02")))
     snapshot = AccountSnapshotService(workspace).current(customer_id)
     campaign = reads.get(customer_id, "101")
 

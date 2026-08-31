@@ -16,6 +16,8 @@ def refresh(ctx: CommandContext, args) -> int:
     customer_id = require_customer(ctx, args.customer_id)
     if bool(args.date_start) != bool(args.date_end):
         raise ValueError("DATE_RANGE_BOTH_BOUNDS_REQUIRED")
+    if not args.date_start:
+        raise ValueError("FINITE_EVIDENCE_DATE_RANGE_REQUIRED")
     payload = ctx.api.account_refresh(
         customer_id,
         campaign_id=args.campaign_id,

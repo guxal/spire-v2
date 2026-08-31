@@ -6,6 +6,7 @@ from spire.execution.policy import HardPolicyService
 from spire.execution.runtime import ProviderUnavailableError
 from spire.execution.service import ExecutionRunService
 from spire.google_ads import RefreshSpec, ScopedRefreshService
+from spire.interfaces import DateRange
 from spire.truth import AccountSnapshotService
 
 
@@ -23,7 +24,7 @@ class _AmbiguousRuntime:
 
 def test_ambiguous_send_is_reconciling_and_never_retried(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
     runtime = _AmbiguousRuntime()
     service = ExecutionRunService(
         workspace,

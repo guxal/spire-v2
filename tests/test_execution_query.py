@@ -16,13 +16,14 @@ from spire.execution import (
 )
 from spire.execution.store import ExecutionStore
 from spire.google_ads import RefreshSpec, ScopedRefreshService
+from spire.interfaces import DateRange
 from spire.surfaces import PublicApi
 from spire.truth import AccountSnapshotService
 
 
 def _snapshot(workspace, provider, customer_id: str):
     ScopedRefreshService(provider, workspace).refresh(
-        RefreshSpec(customer_id, ("101", "202"))
+        RefreshSpec(customer_id, ("101", "202"), DateRange("2026-08-01", "2026-08-02"))
     )
     return AccountSnapshotService(workspace).current(customer_id)
 

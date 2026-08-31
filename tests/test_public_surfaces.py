@@ -148,6 +148,9 @@ def test_mcp_handshake_tools_and_no_approval_tool():
     assert initialized["result"]["serverInfo"]["name"] == "spire"
     listed = server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {tool["name"] for tool in listed["result"]["tools"]}
+    refresh = next(tool for tool in listed["result"]["tools"] if tool["name"] == "account_refresh")
+    assert refresh["inputSchema"]["required"] == ["customer_id", "date_range"]
+    assert refresh["inputSchema"]["properties"]["date_range"]["required"] == ["start", "end"]
     assert "change_budget" in names
     assert "negative_keyword_candidates" in names
     assert "change_negative_keyword" in names
@@ -309,7 +312,11 @@ def test_public_api_clean_workspace_refresh_and_frozen_reads(fake_runtime):
     application = Application(workspace, provider_factory=lambda _workspace, _customer_id: provider)
     api = PublicApi(application)
 
-    refreshed = api.account_refresh("1234567890", campaign_id="101")
+    refreshed = api.account_refresh(
+        "1234567890",
+        campaign_id="101",
+        date_range={"start": "2026-08-01", "end": "2026-08-02"},
+    )
     assert refreshed["status"] == "COMPLETE"
     assert api.campaigns_get("1234567890", "101")["daily_budget"] == 12.5
     evidence = api.evidence_query(

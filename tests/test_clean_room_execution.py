@@ -16,7 +16,7 @@ from spire.google_ads import (
     RefreshSpec,
     ScopedRefreshService,
 )
-from spire.interfaces import McpExecutionSurface, TrustedExecutionCli
+from spire.interfaces import DateRange, McpExecutionSurface, TrustedExecutionCli
 from spire.truth import AccountSnapshotService
 
 
@@ -61,7 +61,7 @@ def test_fresh_workspace_reaches_verified_without_old_data(campaign_rows, tmp_pa
     )
 
     assert not calls
-    refresh.refresh(RefreshSpec(customer_id, ("101",)))
+    refresh.refresh(RefreshSpec(customer_id, ("101",), DateRange("2026-08-01", "2026-08-02")))
     current = reads.get(customer_id, "101")
     proposed = current["daily_budget"] + 1
     service = ExecutionRunService(

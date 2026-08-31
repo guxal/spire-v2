@@ -94,6 +94,8 @@ class ScopedRefreshService:
         self.workspace = workspace
 
     def refresh(self, spec: RefreshSpec) -> RefreshResult:
+        if spec.date_range is None:
+            raise ValueError("FINITE_EVIDENCE_DATE_RANGE_REQUIRED")
         initialize_customer_workspace(self.workspace, spec.customer_id)
         extraction_id = _new_id("extract")
         campaign_query = scoped_campaign_query(spec.campaign_ids)

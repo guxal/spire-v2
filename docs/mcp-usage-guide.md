@@ -336,7 +336,8 @@ tool names.
 - Google Ads authentication status and accessible-account listing;
 - live campaign discovery, plus campaign list and get from the current frozen
   snapshot;
-- explicit account refresh with an optional campaign and date scope;
+- explicit account refresh with an optional campaign scope and required finite
+  date range;
 - logical-dataset listing and safe frozen `evidence_query`;
 - frozen negative-keyword inventory;
 - deterministic negative-keyword candidates from frozen evidence;

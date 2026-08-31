@@ -18,6 +18,7 @@ from spire.execution import (
     PreviewResult,
 )
 from spire.google_ads import RefreshSpec, ScopedRefreshService
+from spire.interfaces import DateRange
 from spire.mcp_server import McpServer
 from spire.surfaces import PublicApi
 from spire.truth import AccountSnapshotService
@@ -55,7 +56,7 @@ class _PreparationApplication:
 
 def _seed_truth(workspace, provider) -> None:
     ScopedRefreshService(provider, workspace).refresh(
-        RefreshSpec(CUSTOMER_ID, (CAMPAIGN_ID,))
+        RefreshSpec(CUSTOMER_ID, (CAMPAIGN_ID,), DateRange("2026-08-01", "2026-08-02"))
     )
 
 

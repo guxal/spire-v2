@@ -3,12 +3,13 @@ from dataclasses import replace
 from spire.execution import BudgetCompiler, ChangeKind, ChangeSpec
 from spire.execution.policy import HardPolicyService
 from spire.google_ads import RefreshSpec, ScopedRefreshService
+from spire.interfaces import DateRange
 from spire.truth import AccountSnapshotService
 
 
 def test_hard_policy_allows_fresh_exact_production_operation(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
     snapshot = AccountSnapshotService(workspace).current("1234567890", campaign_ids=("101",))
     spec = ChangeSpec(
         "spec_policy_1", "1234567890", "1234567890", ChangeKind.UPDATE_BUDGET,
@@ -23,7 +24,7 @@ def test_hard_policy_allows_fresh_exact_production_operation(fake_runtime):
 
 def test_hard_policy_denies_stale_truth_and_disabled_mutations(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
     snapshot = AccountSnapshotService(workspace).current("1234567890", campaign_ids=("101",))
     spec = ChangeSpec(
         "spec_policy_2", "1234567890", "1234567890", ChangeKind.UPDATE_BUDGET,

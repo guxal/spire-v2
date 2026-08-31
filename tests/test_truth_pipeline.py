@@ -11,7 +11,15 @@ from spire.google_ads import (
     RefreshSpec,
     ScopedRefreshService,
 )
+from spire.google_ads.evidence_datasets import (
+    HISTORICAL_EVIDENCE_DATASETS,
+    auction_summary_query,
+    evidence_query,
+)
+from spire.interfaces import DateRange
 from spire.truth import AccountSnapshotService, DatasetResolver, DatasetState
+
+REFRESH_RANGE = DateRange("2026-08-01", "2026-08-02")
 
 
 def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
@@ -26,7 +34,7 @@ def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
     assert len(calls) == 1
 
     refreshed = ScopedRefreshService(provider, workspace).refresh(
-        RefreshSpec("1234567890", ("101",))
+        RefreshSpec("1234567890", ("101",), REFRESH_RANGE)
     )
     assert refreshed.manifest.status == "FINALIZED"
     assert refreshed.manifest.datasets["campaigns"]["state"] == DatasetState.PRESENT
@@ -34,6 +42,7 @@ def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
 
     snapshot = AccountSnapshotService(workspace).current("1234567890", campaign_ids=("101",))
     assert snapshot.source.value == "LIVE"
+    assert snapshot.scope["date_range"] == {"start": "2026-08-01", "end": "2026-08-02"}
     assert snapshot.coverage["campaigns"] is DatasetState.PRESENT
     resolved = DatasetResolver(workspace, "1234567890").resolve_dataset(
         snapshot.extraction_id, "campaigns", campaign_ids=("101",)
@@ -55,12 +64,39 @@ def test_refresh_snapshot_resolver_and_campaign_reads(fake_runtime):
 
 def test_refresh_requires_explicit_nonempty_scope():
     with pytest.raises(ValueError, match="EXPLICIT_CAMPAIGN_SCOPE_REQUIRED"):
-        RefreshSpec("1234567890", ())
+        RefreshSpec("1234567890", (), REFRESH_RANGE)
+
+
+def test_refresh_requires_a_finite_evidence_date_range_before_provider_reads(fake_runtime):
+    workspace, provider, calls = fake_runtime
+
+    with pytest.raises(ValueError, match="FINITE_EVIDENCE_DATE_RANGE_REQUIRED"):
+        ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+
+    assert calls == []
+    assert not workspace.truth("1234567890").exists()
+
+
+def test_historical_evidence_queries_are_bounded_and_configuration_queries_are_not_rewritten():
+    for dataset in HISTORICAL_EVIDENCE_DATASETS:
+        query = evidence_query(dataset, ("101",), REFRESH_RANGE)
+        assert "segments.date BETWEEN '2026-08-01' AND '2026-08-02'" in query
+
+    assert "segments.date BETWEEN '2026-08-01' AND '2026-08-02'" in auction_summary_query(
+        ("101",), REFRESH_RANGE
+    )
+
+    for dataset in ("campaign_ad_groups", "campaign_ads", "campaign_assets"):
+        query = evidence_query(dataset, ("101",), REFRESH_RANGE)
+        assert "segments.date" not in query
+
+    with pytest.raises(ValueError, match="FINITE_EVIDENCE_DATE_RANGE_REQUIRED"):
+        evidence_query("campaign_daily", ("101",), None)
 
 
 def test_snapshot_is_immutable(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), REFRESH_RANGE))
     snapshot = AccountSnapshotService(workspace).current("1234567890")
     with pytest.raises(FrozenInstanceError):
         snapshot.extraction_id = "other"
@@ -81,7 +117,7 @@ def test_resolver_has_no_v1_or_archive_fallback(fake_runtime):
 def test_missing_dataset_is_not_empty(fake_runtime):
     workspace, provider, _ = fake_runtime
     result = ScopedRefreshService(provider, workspace).refresh(
-        RefreshSpec("1234567890", ("101",))
+        RefreshSpec("1234567890", ("101",), REFRESH_RANGE)
     )
     dataset = workspace.truth("1234567890") / "extractions" / result.extraction_id / "datasets/campaigns.jsonl"
     dataset.unlink()
@@ -92,8 +128,8 @@ def test_missing_dataset_is_not_empty(fake_runtime):
 def test_current_does_not_fallback_to_another_scope(fake_runtime):
     workspace, provider, _ = fake_runtime
     service = ScopedRefreshService(provider, workspace)
-    service.refresh(RefreshSpec("1234567890", ("101",)))
-    service.refresh(RefreshSpec("1234567890", ("202",)))
+    service.refresh(RefreshSpec("1234567890", ("101",), REFRESH_RANGE))
+    service.refresh(RefreshSpec("1234567890", ("202",), REFRESH_RANGE))
     snapshots = AccountSnapshotService(workspace)
     with pytest.raises(ArtifactNotFoundError):
         snapshots.current("1234567890", campaign_ids=("101",))
@@ -102,7 +138,7 @@ def test_current_does_not_fallback_to_another_scope(fake_runtime):
 
 def test_unknown_dataset_is_rejected(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",), REFRESH_RANGE))
     with pytest.raises(ScopeMismatchError):
         DatasetResolver(workspace, "1234567890").resolve_dataset(
             "extract_missing", "not-a-dataset"

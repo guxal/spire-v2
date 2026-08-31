@@ -340,7 +340,9 @@ def test_auction_summary_survives_unavailable_participant_metrics(tmp_path, camp
     from spire.core import WorkspacePaths
 
     workspace = WorkspacePaths(tmp_path)
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(
+        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
+    )
 
     response = EvidenceQueryService(workspace).query(
         EvidenceQueryRequest(
@@ -377,7 +379,9 @@ def test_structured_dimensions_group_without_losing_json_shape(tmp_path, campaig
     from spire.core import WorkspacePaths
 
     workspace = WorkspacePaths(tmp_path)
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(
+        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
+    )
 
     response = EvidenceQueryService(workspace).query(
         EvidenceQueryRequest(
@@ -422,7 +426,9 @@ def test_ad_copy_extraction_rejects_unknown_objects_instead_of_stringifying():
 
 def test_evidence_query_is_allowlisted_and_scope_safe(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(
+        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
+    )
     service = EvidenceQueryService(workspace)
     with pytest.raises(ValueError, match="UNKNOWN_EVIDENCE_DATASET"):
         service.query(EvidenceQueryRequest("1234567890", ("101",), "campaign_daily;DROP"))
@@ -444,7 +450,9 @@ def test_evidence_query_never_reads_legacy_extraction(fake_runtime):
 
 def test_date_range_and_order_are_certified_contracts(fake_runtime):
     workspace, provider, _ = fake_runtime
-    ScopedRefreshService(provider, workspace).refresh(RefreshSpec("1234567890", ("101",)))
+    ScopedRefreshService(provider, workspace).refresh(
+        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
+    )
     service = EvidenceQueryService(workspace)
     with pytest.raises(ScopeMismatchError, match="EVIDENCE_DATE_RANGE_NOT_CERTIFIED"):
         service.query(

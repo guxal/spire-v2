@@ -61,9 +61,9 @@ prepare `UPDATE_BUDGET`, `ADD_NEGATIVE_KEYWORD`, and
 `CREATE_SEARCH_CAMPAIGN` runs up to `WAITING_FOR_APPROVAL`; Search campaigns
 are always prepared as `PAUSED`.
 
-Segmented Google Ads datasets require a finite date range. For
-`account_refresh`, pass `date_range` with `start` and `end` when you need
-performance evidence.
+Segmented Google Ads datasets require a finite date range. `account_refresh`
+requires `date_range` with `start` and `end` so it can materialize certified
+performance evidence without issuing unbounded Google Ads queries.
 
 It does not expose `approve_run`, `grant_authority`, or `mint_approval`.
 Human approval is performed only through the trusted CLI:

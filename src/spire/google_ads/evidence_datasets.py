@@ -31,10 +31,27 @@ EVIDENCE_DATASETS = (
     "negative_keywords",
 )
 
+HISTORICAL_EVIDENCE_DATASETS = frozenset(
+    {
+        "campaign_daily",
+        "search_terms",
+        "keyword_daily",
+        "ad_performance",
+        "campaign_asset_performance",
+        "rsa_asset_performance",
+        "geo_daily",
+        "schedule_day",
+        "schedule_hour",
+        "auction_insights",
+    }
+)
+
 
 def evidence_query(dataset: str, campaign_ids: tuple[str, ...], date_range: DateRange | None) -> str:
     if dataset not in EVIDENCE_DATASETS:
         raise ValueError(f"UNSUPPORTED_EVIDENCE_DATASET:{dataset}")
+    if dataset in HISTORICAL_EVIDENCE_DATASETS and date_range is None:
+        raise ValueError("FINITE_EVIDENCE_DATE_RANGE_REQUIRED")
     ids = ", ".join(campaign_ids)
     date_clause = ""
     if date_range is not None:
