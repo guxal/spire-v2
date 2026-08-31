@@ -1,3 +1,6 @@
+import pytest
+
+from spire.core import ArtifactNotFoundError
 from spire.execution import BudgetCompiler
 from spire.execution.authority import AuthorityService
 from spire.execution.policy import HardPolicyService
@@ -69,6 +72,18 @@ def test_prepare_stops_at_one_exact_human_approval_boundary(fake_runtime):
     assert runtime.mutate_calls == 0
     assert len(list((workspace.execution("1234567890") / "runs").glob("*.json"))) == 1
     assert len(list((workspace.execution("1234567890") / "approval_requests").glob("*.json"))) == 1
+
+
+def test_governed_preparation_keeps_strict_current_snapshot_scope(fake_runtime):
+    workspace, provider, _ = fake_runtime
+    refresh = ScopedRefreshService(provider, workspace)
+    refresh.refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
+    refresh.refresh(RefreshSpec("1234567890", ("202",), DateRange("2026-08-01", "2026-08-02")))
+
+    with pytest.raises(ArtifactNotFoundError, match="CURRENT_SNAPSHOT_SCOPE_MISMATCH"):
+        _service(workspace, provider, _PreviewRuntime()).prepare_change_budget(
+            "1234567890", "101", "13", provenance={"producer": "test"}
+        )
 
 
 def test_new_change_kinds_prepare_through_the_same_execution_run(fake_runtime):

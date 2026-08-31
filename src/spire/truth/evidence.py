@@ -47,7 +47,11 @@ class EvidenceQueryService:
     def query(self, request: EvidenceQueryRequest | Mapping[str, Any]) -> dict[str, Any]:
         request = _request(request)
         schema = _validate_request(request)
-        snapshot = self.snapshots.current(request.customer_id, campaign_ids=request.campaign_ids)
+        snapshot = self.snapshots.latest_compatible(
+            request.customer_id,
+            campaign_ids=request.campaign_ids,
+            date_range=request.date_range,
+        )
         limitations = list(schema.limitations)
         if request.date_range is not None:
             declared_range = snapshot.scope.get("date_range")

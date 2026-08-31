@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from spire.core import ArtifactNotFoundError, validate_customer_id
+from spire.interfaces import DateRange
 
 from .contracts import AccountSnapshot, DatasetState
 from .resolver import DatasetResolver
@@ -48,6 +49,22 @@ class AccountSnapshotService:
         customer_id = validate_customer_id(customer_id)
         resolver = DatasetResolver(self.workspace, customer_id)
         extraction_id = resolver.latest_extraction_for_selection(campaign_ids)
+        return self._build_snapshot(resolver.extraction_manifest(extraction_id), now=now)
+
+    def latest_compatible(
+        self,
+        customer_id: str,
+        *,
+        campaign_ids: tuple[str, ...] | list[str],
+        date_range: DateRange | None = None,
+        now: datetime | None = None,
+    ) -> AccountSnapshot:
+        customer_id = validate_customer_id(customer_id)
+        resolver = DatasetResolver(self.workspace, customer_id)
+        extraction_id = resolver.latest_extraction_for_compatible_scope(
+            campaign_ids,
+            date_range=date_range,
+        )
         return self._build_snapshot(resolver.extraction_manifest(extraction_id), now=now)
 
     def _build_snapshot(self, manifest, *, now: datetime | None) -> AccountSnapshot:

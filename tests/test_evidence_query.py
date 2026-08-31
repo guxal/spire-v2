@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from spire.core import ScopeMismatchError
+from spire.core import ArtifactNotFoundError, ScopeMismatchError
 from spire.google_ads import GoogleAdsClientProvider, RefreshSpec, ScopedRefreshService
 from spire.google_ads.evidence_datasets import (
     _strings,
@@ -385,7 +385,46 @@ def test_evidence_query_never_reads_legacy_extraction(fake_runtime):
     service = EvidenceQueryService(workspace)
     with pytest.raises(Exception) as failure:
         service.query(EvidenceQueryRequest("1234567890", ("101",), "campaign_daily"))
-    assert "CURRENT_EXTRACTION_NOT_FOUND" in str(failure.value)
+    assert "COMPATIBLE_SCOPED_EXTRACTION_NOT_FOUND" in str(failure.value)
+
+
+def test_evidence_query_resolves_compatible_finalized_snapshot_across_campaign_switches(fake_runtime):
+    workspace, provider, _ = fake_runtime
+    refresh = ScopedRefreshService(provider, workspace)
+    campaign_a = refresh.refresh(RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02")))
+    campaign_b = refresh.refresh(RefreshSpec("1234567890", ("202",), DateRange("2026-08-01", "2026-08-02")))
+    service = EvidenceQueryService(workspace)
+
+    def query(campaign_id: str) -> dict:
+        return service.query(
+            EvidenceQueryRequest(
+                "1234567890",
+                (campaign_id,),
+                "campaign_daily",
+                DateRange("2026-08-01", "2026-08-02"),
+            )
+        )
+
+    assert query("101")["scope"]["extraction_id"] == campaign_a.extraction_id
+    assert query("202")["scope"]["extraction_id"] == campaign_b.extraction_id
+    assert query("101")["scope"]["extraction_id"] == campaign_a.extraction_id
+
+    combined = refresh.refresh(
+        RefreshSpec("1234567890", ("101", "202"), DateRange("2026-08-01", "2026-08-02"))
+    )
+    assert query("101")["scope"]["extraction_id"] == combined.extraction_id
+
+
+def test_evidence_query_never_uses_an_incompatible_campaign_snapshot(fake_runtime):
+    workspace, provider, _ = fake_runtime
+    ScopedRefreshService(provider, workspace).refresh(
+        RefreshSpec("1234567890", ("101",), DateRange("2026-08-01", "2026-08-02"))
+    )
+
+    with pytest.raises(ArtifactNotFoundError, match="COMPATIBLE_SCOPED_EXTRACTION_NOT_FOUND"):
+        EvidenceQueryService(workspace).query(
+            EvidenceQueryRequest("1234567890", ("202",), "campaign_daily")
+        )
 
 
 def test_date_range_and_order_are_certified_contracts(fake_runtime):

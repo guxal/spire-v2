@@ -21,7 +21,7 @@ from spire.core import (
     validate_customer_id,
     validate_google_ads_id,
 )
-from spire.interfaces import DATASET_SCHEMAS
+from spire.interfaces import DATASET_SCHEMAS, DateRange
 
 from .contracts import DatasetState, ExtractionManifest
 
@@ -116,6 +116,42 @@ class DatasetResolver:
             raise ArtifactNotFoundError("EXACT_SCOPED_EXTRACTION_NOT_FOUND")
         return max(candidates)[1]
 
+    def latest_extraction_for_compatible_scope(
+        self,
+        campaign_ids: tuple[str, ...] | list[str],
+        *,
+        date_range: DateRange | None = None,
+    ) -> str:
+        """Select the latest finalized extraction that certifies a read request."""
+
+        wanted = _normalize_campaign_ids(campaign_ids)
+        scope_candidates: list[tuple[str, str]] = []
+        compatible_candidates: list[tuple[str, str]] = []
+        root = self.workspace.truth(self.customer_id) / "extractions"
+        if root.is_dir():
+            for directory in root.iterdir():
+                if not directory.is_dir() or directory.name.startswith("."):
+                    continue
+                try:
+                    manifest = self.extraction_manifest(directory.name)
+                except (ArtifactNotFoundError, ValueError, ScopeMismatchError):
+                    continue
+                scope = tuple(str(value) for value in manifest.scope.get("resolved_campaign_ids", ()))
+                if (
+                    manifest.scope.get("scope_type") != "CAMPAIGNS"
+                    or not set(wanted).issubset(set(scope))
+                ):
+                    continue
+                candidate = (manifest.observed_at, manifest.extraction_id)
+                scope_candidates.append(candidate)
+                if _certifies_date_range(manifest.scope, date_range):
+                    compatible_candidates.append(candidate)
+        if compatible_candidates:
+            return max(compatible_candidates)[1]
+        if date_range is not None and scope_candidates:
+            raise ScopeMismatchError("EVIDENCE_DATE_RANGE_NOT_CERTIFIED")
+        raise ArtifactNotFoundError("COMPATIBLE_SCOPED_EXTRACTION_NOT_FOUND")
+
     def _load_manifest(self, extraction_id: str) -> dict[str, Any]:
         validated = safe_child(
             self.workspace.truth(self.customer_id) / "extractions",
@@ -150,3 +186,14 @@ def _normalize_campaign_ids(values: tuple[str, ...] | list[str] | None) -> tuple
     if values is None:
         return ()
     return tuple(sorted({validate_google_ads_id(value, field="campaign_id") for value in values}, key=int))
+
+
+def _certifies_date_range(scope: dict[str, Any], requested: DateRange | None) -> bool:
+    if requested is None:
+        return True
+    declared = scope.get("date_range")
+    if not isinstance(declared, dict):
+        return False
+    start = declared.get("start")
+    end = declared.get("end")
+    return isinstance(start, str) and isinstance(end, str) and start <= requested.start and end >= requested.end
