@@ -203,8 +203,62 @@ def test_safe_projection_and_stable_not_found(discovered_runs, tmp_path):
     assert "resource_name" not in serialized
     assert "compiled_operation" not in serialized
     assert "spec_id" not in serialized
+    assert payload["requested_change"] == {"daily_budget": "13"}
+    assert payload["requested_campaign_status"] is None
     assert payload["approval_required"] is True
     assert payload["approval_state"] == "PENDING"
     assert payload["verification_state"] == "NOT_STARTED"
     with pytest.raises(ArtifactNotFoundError, match="EXECUTION_RUN_NOT_FOUND"):
         queries.list_runs(customer_id="1111111111")
+
+
+def test_search_campaign_projection_exposes_requested_change_and_paused_semantics(discovered_runs):
+    workspace, _provider, waiting, _verified, _failed = discovered_runs
+    request = {
+        "campaign_name": "Search | Tejados | Pamplona | ADK Test",
+        "daily_budget": "25",
+        "bidding_strategy": "MAXIMIZE_CONVERSIONS",
+        "geo_target_ids": ("1005503",),
+        "language_criterion_ids": ("1003",),
+        "ad_groups": (
+            {
+                "name": "Reparación de Tejados",
+                "keywords": ({"text": "tejados pamplona", "match_type": "EXACT"},),
+                "headlines": ("Reparación de Tejados", "Tejados en Pamplona", "Revisión Profesional"),
+                "descriptions": ("Reparamos tejados.", "Solicita una revisión."),
+                "final_url": "https://clconstructores.com/tejados",
+            },
+        ),
+    }
+    spec = ChangeSpec(
+        spec_id="spec_search_projection",
+        customer_id=waiting.customer_id,
+        account_id=waiting.customer_id,
+        kind=ChangeKind.CREATE_SEARCH_CAMPAIGN,
+        target={"campaign_name": request["campaign_name"]},
+        requested_change=request,
+        snapshot_ref=waiting.snapshot_ref,
+    )
+    run = ExecutionRun(
+        run_id="run_search_projection",
+        spec_id=spec.spec_id,
+        customer_id=waiting.customer_id,
+        account_id=waiting.customer_id,
+        mode=ExecutionMode.PRODUCTION,
+        state=ExecutionRunState.WAITING_FOR_APPROVAL,
+        spec_hash=spec.content_hash,
+        snapshot_ref=waiting.snapshot_ref,
+        preview={"status": "PASSED"},
+        policy={"status": "ALLOWED"},
+        created_at="2026-01-05T00:00:00Z",
+        updated_at="2026-01-05T00:00:00Z",
+    )
+    store = ExecutionStore(workspace, waiting.customer_id)
+    store.save_spec(spec)
+    store.save_run(run)
+
+    payload = ExecutionRunQueryService(workspace).get_run(run.run_id)
+
+    assert payload["requested_change"] == json.loads(json.dumps(request))
+    assert payload["requested_campaign_status"] == "PAUSED"
+    assert payload["campaign_id"] is None

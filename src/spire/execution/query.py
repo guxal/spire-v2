@@ -135,6 +135,7 @@ class ExecutionRunQueryService:
         approval_state = _approval_state(run, authority)
         preview_status = str((run.preview or {}).get("status", ""))
         verification_state = str((run.verification or {}).get("status") or "NOT_STARTED")
+        requested_change = dict(spec.requested_change) if spec is not None else None
         return {
             "run_id": run.run_id,
             "customer_id": run.customer_id,
@@ -155,6 +156,10 @@ class ExecutionRunQueryService:
             "preview": dict(run.preview or {}),
             "policy": (run.policy or {}).get("status"),
             "fingerprint": run.approval_fingerprint or None,
+            "requested_change": requested_change,
+            "requested_campaign_status": (
+                "PAUSED" if change_kind == ChangeKind.CREATE_SEARCH_CAMPAIGN.value else None
+            ),
             **summary,
         }
 
