@@ -99,6 +99,18 @@ def test_geo_target_suggestions_preserve_google_fields_and_request_scope():
     }
 
 
+def test_geo_target_suggestions_normalize_a_spanish_city_qualifier_for_google_lookup():
+    service = _GeoService([_suggestion(100, "Pamplona", "Pamplona, Spain")])
+    client = _GeoClient(service)
+
+    result = GeoTargetSuggestionService(_GeoProvider(client)).suggest(
+        ["Pamplona ciudad"], country_code="ES", locale="es"
+    )
+
+    assert client.request.location_names.names == ["Pamplona"]
+    assert result["geo_targets"][0]["id"] == "100"
+
+
 def test_geo_target_suggestions_preserve_multiple_candidates_and_allow_no_match():
     service = _GeoService(
         [

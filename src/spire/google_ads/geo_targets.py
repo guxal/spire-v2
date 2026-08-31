@@ -29,9 +29,10 @@ class GeoTargetSuggestionService:
         location_names = _location_names(names)
         normalized_country = _country_code(country_code)
         normalized_locale = _locale(locale)
+        lookup_names = _lookup_names(location_names, locale=normalized_locale)
         client = self.provider.get_client()
         request = client.get_type("SuggestGeoTargetConstantsRequest")
-        request.location_names.names.extend(location_names)
+        request.location_names.names.extend(lookup_names)
         request.country_code = normalized_country
         if normalized_locale is not None:
             request.locale = normalized_locale
@@ -66,6 +67,24 @@ def _locale(value: str | None) -> str | None:
     if not normalized:
         raise ValueError("INVALID_LOCALE")
     return normalized
+
+
+def _lookup_names(names: tuple[str, ...], *, locale: str | None) -> tuple[str, ...]:
+    """Remove a Spanish generic city qualifier before the Google lookup.
+
+    This only normalizes the search query; Google remains authoritative for
+    every returned criterion and target type.
+    """
+
+    if locale is None or locale.lower().split("-", maxsplit=1)[0] != "es":
+        return names
+    suffix = " ciudad"
+    return tuple(
+        name[: -len(suffix)].strip()
+        if name.casefold().endswith(suffix) and name[: -len(suffix)].strip()
+        else name
+        for name in names
+    )
 
 
 def _public_suggestion(suggestion: Any) -> dict[str, Any]:
